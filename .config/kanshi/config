@@ -1,0 +1,5 @@
+profile {
+	output eDP-1 mode 1920x1080 position 0,1080 scale 1.2 
+	output DP-1 mode 1920x1080 position 1920,0 transform 90
+	output DP-2 mode 1920x1080 position 0,0 
+}
