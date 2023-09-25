@@ -1,4 +1,5 @@
 local lsp_zero = require('lsp-zero')
+lsp_zero.extend_lspconfig()
 lsp_zero.configure('lua_ls', {
   cmd = { 'lua-language-server' },
   settings = {

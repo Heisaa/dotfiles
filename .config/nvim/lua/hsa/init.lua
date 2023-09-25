@@ -46,7 +46,8 @@ local plugins = {
         -- ...
       })
 
-      vim.cmd('colorscheme github_dark_tritanopia')
+      -- vim.cmd('colorscheme github_dark_tritanopia')
+      vim.cmd('colorscheme github_light')
     end,
   },
 
@@ -106,6 +107,10 @@ local plugins = {
     },
     version = '^1.0.0', -- optional: only update when a new 1.x version is released
   },
+
+  {"github/copilot.vim"},
+
+  {"lukas-reineke/lsp-format.nvim"}
 
 }
 
