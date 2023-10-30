@@ -46,7 +46,7 @@ local plugins = {
   -- syntax highlighting
   {
     "nvim-treesitter/nvim-treesitter",
-    build = ":tsupdate",
+    build = ":TSUpdate",
     config = function()
       require "plugins.configs.treesitter"
     end,
@@ -63,9 +63,9 @@ local plugins = {
 
   -- statusline (byta ut mot lua line med lazy config)
   {
-    "echasnovski/mini.statusline",
+    "nvim-lualine/lualine.nvim",
     config = function()
-      require("mini.statusline").setup { set_vim_settings = false }
+      require("lualine").setup()
     end,
   },
 
@@ -115,7 +115,8 @@ local plugins = {
 
   {
     "williamboman/mason.nvim",
-    build = ":masonupdate",
+    build = ":MasonUpdate",
+    cmd = { "Mason", "MasonInstall" },
     config = function()
       require("mason").setup()
     end,
@@ -144,7 +145,7 @@ local plugins = {
     "lukas-reineke/indent-blankline.nvim",
     event = { "bufreadpre", "bufnewfile" },
     config = function()
-      require("indent_blankline").setup()
+      require("ibl").setup()
     end,
   },
 
@@ -170,7 +171,7 @@ local plugins = {
     "numtostr/comment.nvim",
     lazy = true,
     config = function()
-      require("comment").setup()
+      require("Comment").setup()
     end,
   },
 
@@ -204,6 +205,37 @@ local plugins = {
           auto_trigger = true,
         }
       })
+    end,
+  },
+
+  -- Surround
+  {
+    "kylechui/nvim-surround",
+    version = "*", -- Use for stability; omit to use `main` branch for the latest features
+    event = "VeryLazy",
+    config = function()
+      require("nvim-surround").setup({
+        -- Configuration here, or leave empty to use defaults
+      })
+    end
+  },
+
+  -- Zen mode
+  {
+    "folke/zen-mode.nvim",
+    opts = {
+      -- your configuration comes here
+      -- or leave it empty to use the default settings
+      -- refer to the configuration section below
+    }
+  },
+
+  -- Ufo (fold)
+  {
+    "kevinhwang91/nvim-ufo",
+    dependencies = 'kevinhwang91/promise-async',
+    config = function()
+      require "plugins.configs.ufo"
     end,
   },
 
