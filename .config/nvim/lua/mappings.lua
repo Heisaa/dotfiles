@@ -3,6 +3,7 @@ local opts = { noremap = true, silent = true }
 
 -- general mappings
 map("n", "<C-s>", "<cmd> w <CR>")
+map("i", "<C-s>", "<cmd> w <CR>")
 map("i", "jk", "<ESC>")
 map("n", "<C-c>", "<cmd> %y+ <CR>") -- copy whole filecontent
 map("i", "<C-BS>", "<C-W>")
