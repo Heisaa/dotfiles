@@ -22,7 +22,7 @@ local plugins = {
         -- ...
       })
 
-      vim.cmd('colorscheme github_light_high_contrast')
+      vim.cmd('colorscheme github_dark_default')
     end,
   },
 
@@ -65,7 +65,11 @@ local plugins = {
   {
     "nvim-lualine/lualine.nvim",
     config = function()
-      require("lualine").setup()
+      require("lualine").setup({
+        sections = {
+          lualine_c = {{"filename", path = 1}}
+        }
+      })
     end,
   },
 
@@ -130,6 +134,11 @@ local plugins = {
       require "plugins.configs.lspconfig"
     end,
   },
+
+  -- rust tools
+  -- {
+  --   "simrat39/rust-tools.nvim",
+  -- },
 
   -- formatting , linting
   {
@@ -239,6 +248,60 @@ local plugins = {
     end,
   },
 
+  {
+    "rust-lang/rust.vim",
+    ft = "rust",
+    init = function()
+      vim.g.rustfmt_autosave = 1
+    end,
+  },
+
+  {
+    "folke/trouble.nvim",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    opts = {
+    -- your configuration comes here
+    -- or leave it empty to use the default settings
+    -- refer to the configuration section below
+    }
+  }
+
+  -- Hover  
+  -- {
+  --   "lewis6991/hover.nvim",
+  --   config = function()
+  --     require("hover").setup({
+  --       init = function()
+  --         -- Require providers
+  --         require("hover.providers.lsp")
+  --         -- require('hover.providers.gh')
+  --         -- require('hover.providers.gh_user')
+  --         -- require('hover.providers.jira')
+  --         -- require('hover.providers.man')
+  --         -- require('hover.providers.dictionary')
+  --       end,
+  --       preview_opts = {
+  --         border = 'single'
+  --       },
+  --       -- Whether the contents of a currently open hover window should be moved
+  --       -- to a :h preview-window when pressing the hover keymap.
+  --       preview_window = false,
+  --       title = true,
+  --       mouse_providers = {
+  --         'LSP'
+  --       },
+  --       mouse_delay = 1000
+  --     })
+  --
+  --     -- Setup keymaps
+  --     vim.keymap.set("n", "K", require("hover").hover, {desc = "hover.nvim"})
+  --     vim.keymap.set("n", "gK", require("hover").hover_select, {desc = "hover.nvim (select)"})
+  --
+  --     -- Mouse support
+  --     vim.keymap.set('n', '<MouseMove>', require('hover').hover_mouse, { desc = "hover.nvim (mouse)" })
+  --     vim.o.mousemoveevent = true
+  --   end,
+  -- }
 }
 
 require("lazy").setup(plugins, require "plugins.configs.lazy")

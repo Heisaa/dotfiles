@@ -63,9 +63,21 @@ lspconfig.lua_ls.setup {
   },
 }
 
+lspconfig.rust_analyzer.setup {
+  capabilities = capabilities,
+  filetypes = { "rust" },
+  settings = {
+    ["rust-analyzer"] = {
+      cargo = {
+        allFeatures = true,
+      },
+    },
+  }
+}
+
 -- setup multiple servers with same default options
 local servers = { "tsserver", "html", "cssls" }
-
+ 
 for _, lsp in ipairs(servers) do
   lspconfig[lsp].setup {
     capabilities = capabilities,

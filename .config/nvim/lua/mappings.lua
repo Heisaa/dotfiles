@@ -28,8 +28,6 @@ map("n", "<leader>fw", "<cmd> Telescope live_grep <CR>")
 map("n", "<leader>gt", "<cmd> Telescope git_status <CR>")
 
 -- bufferline, cycle buffers
-map("n", "<Tab>", "<cmd> BufferLineCycleNext <CR>")
-map("n", "<S-Tab>", "<cmd> BufferLineCyclePrev <CR>")
 map("n", "<A-q>","<cmd> Bdelete <CR>")
 map('n', '<A-1>', '<Cmd>BufferLineGoToBuffer 1<CR>', opts)
 map('n', '<A-2>', '<Cmd>BufferLineGoToBuffer 2<CR>', opts)
@@ -40,6 +38,9 @@ map('n', '<A-6>', '<Cmd>BufferLineGoToBuffer 6<CR>', opts)
 map('n', '<A-7>', '<Cmd>BufferLineGoToBuffer 7<CR>', opts)
 map('n', '<A-8>', '<Cmd>BufferLineGoToBuffer 8<CR>', opts)
 map('n', '<A-9>', '<Cmd>BufferLineGoToBuffer 9<CR>', opts)
+map('n', '<A-l>', '<Cmd>BufferLineMoveNext<CR>', opts)
+map('n', '<A-h>', '<Cmd>BufferLineMovePrev<CR>', opts)
+
 
 -- comment.nvim
 map("n", "<leader>/", function()

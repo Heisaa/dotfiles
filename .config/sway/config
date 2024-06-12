@@ -60,6 +60,10 @@ exec_always pkill kanshi; exec kanshi
        #xkb_variant ,nodeadkeys
        xkb_options "grp:win_space_toggle,caps:escape" 
     }
+
+  input "6421:64:BT-400_Mouse" {
+    accel_profile flat
+  }
 #
 # You can get the names of your inputs by running: swaymsg -t get_inputs
 # Read `man 5 sway-input` for more information about this section.
