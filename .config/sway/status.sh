@@ -16,6 +16,8 @@ battery_status=$(cat /sys/class/power_supply/BAT0/status)
 audio_volume=$(wpctl get-volume @DEFAULT_AUDIO_SINK@|\
 awk '{print $3} {print $2*100}')
 
+language=$(swaymsg -t get_inputs | jq -r 'map(select(has("xkb_active_layout_name")))[0].xkb_active_layout_name')
+
 # Emojis and characters for the status bar
 # 💎 💻 💡 🔌 ⚡ 📁 \|
-echo  Volume $audio_volume% $battery_status $battery_level% $date_formatted
+echo  $language Volume $audio_volume% $battery_status $battery_level% $date_formatted
