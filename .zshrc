@@ -101,3 +101,9 @@ unsetopt PROMPT_SP
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias gitdot='/usr/bin/git --git-dir=$HOME/dotfiles/ --work-tree=$HOME'
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit'
+alias gp='git push'
+eval $(keychain --eval --quiet id_ed25519)
+

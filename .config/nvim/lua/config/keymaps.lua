@@ -14,3 +14,7 @@ vim.keymap.set("x", "P", '"0P', { noremap = true })
 -- Delete whole word with ctrl + backspace
 vim.keymap.set("i", "<C-BS>", "<C-W>", { noremap = true })
 vim.keymap.set("n", "<A-q>", function() Snacks.bufdelete() end, { noremap = true })
+vim.keymap.set("n", "<A-e>", function() vim.diagnostic.open_float() end, { noremap = true })
+vim.keymap.set("n", "<A-h>", "<cmd>BufferLineMovePrev<cr>", { noremap = true })
+vim.keymap.set("n", "<A-l>", "<cmd>BufferLineMoveNext<cr>", { noremap = true })
+
