@@ -275,8 +275,8 @@ theme "catppuccin-latte"
 // Choose the base input mode of zellij.
 // Default: normal
 // 
-default_mode "locked"
- 
+default_mode "normal"
+show_startup_tips false 
 // Choose the path to the default shell that zellij will use for opening new panes
 // Default: $SHELL
 // 
