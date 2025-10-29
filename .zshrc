@@ -109,5 +109,5 @@ alias lappy='ssh lappy@192.168.1.204 -i ~/.ssh/office-cluster'
 alias black='ssh black-buddog@192.168.1.203 -i ~/.ssh/office-cluster'
 alias white='ssh white-buddog@192.168.1.202 -i ~/.ssh/office-cluster'
 alias k=kubectl
-alias main=zellij a -c main
+alias main='zellij a -c main'
 eval $(keychain --eval --quiet id_ed25519)
