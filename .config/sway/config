@@ -14,7 +14,7 @@ set $down j
 set $up k
 set $right l
 # Your preferred terminal emulator
-set $term foot
+set $term wezterm
 # Your preferred application launcher
 # Note: pass the final command to swaymsg so that the resulting window can be opened
 # on the original workspace that the command was run on.
@@ -99,8 +99,8 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
     bindsym $mod+Shift+s exec grim -g "$(slurp -d)" - | wl-copy
 
     for_window [app_id="blueman-manager"] floating enable, border normal
-		default_border pixel 2
-		default_floating_border normal 2
+		default_border none
+		default_floating_border none
 
     # Special keys
     bindsym XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +3%
@@ -138,27 +138,27 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
 # Workspaces:
 #
     # Switch to workspace
-    bindsym $mod+q workspace number 1:🦆
-    bindsym $mod+w workspace number 2:🌊
-    bindsym $mod+e workspace number 3:🦅
-    bindsym $mod+r workspace number 4:🌈
-    bindsym $mod+t workspace number 5:🌲
-    bindsym $mod+y workspace number 6:🤹
-    bindsym $mod+u workspace number 7:🌍
-    bindsym $mod+i workspace number 8:🔑
-    bindsym $mod+o workspace number 9:🦉
-    bindsym $mod+p workspace number 10:🍕
+    bindsym $mod+q workspace number 1:q
+    bindsym $mod+w workspace number 2:w
+    bindsym $mod+e workspace number 3:e
+    bindsym $mod+r workspace number 4:r
+    bindsym $mod+t workspace number 5:t
+    bindsym $mod+y workspace number 6:y
+    bindsym $mod+u workspace number 7:u
+    bindsym $mod+i workspace number 8:i
+    bindsym $mod+o workspace number 9:o
+    bindsym $mod+p workspace number 10:p
     # Move focused container to workspace
-    bindsym $mod+Shift+q move container to workspace number 1:🦆
-    bindsym $mod+Shift+w move container to workspace number 2:🌊
-    bindsym $mod+Shift+e move container to workspace number 3:🦅
-    bindsym $mod+Shift+r move container to workspace number 4:🌈
-    bindsym $mod+Shift+t move container to workspace number 5:🌲
-    bindsym $mod+Shift+y move container to workspace number 6:🤹
-    bindsym $mod+Shift+u move container to workspace number 7:🌍
-    bindsym $mod+Shift+i move container to workspace number 8:🔑
-    bindsym $mod+Shift+o move container to workspace number 9:🦉
-    bindsym $mod+Shift+p move container to workspace number 10:🍕
+    bindsym $mod+Shift+q move container to workspace number 1:q
+    bindsym $mod+Shift+w move container to workspace number 2:w
+    bindsym $mod+Shift+e move container to workspace number 3:e
+    bindsym $mod+Shift+r move container to workspace number 4:r
+    bindsym $mod+Shift+t move container to workspace number 5:t
+    bindsym $mod+Shift+y move container to workspace number 6:y
+    bindsym $mod+Shift+u move container to workspace number 7:u
+    bindsym $mod+Shift+i move container to workspace number 8:i
+    bindsym $mod+Shift+o move container to workspace number 9:o
+    bindsym $mod+Shift+p move container to workspace number 10:p
     # Note: workspaces can have any name you want, not just numbers.
     # We just use 1-10 as the default.
 #
@@ -231,15 +231,18 @@ bindsym $mod+period mode "resize"
 bar {
     position top
     strip_workspace_numbers yes
+    workspace_min_width 25 px
 
     # When the status_command prints a new line to stdout, swaybar updates.
     # The default just shows the current date and time.
     status_command while ~/.config/sway/status.sh; do sleep 1; done
 
     colors {
-        statusline #ffffff
-        background #323232
-        inactive_workspace #32323200 #32323200 #5c5c5c
+        statusline #000000
+        background #F6F8FA
+        focused_workspace  #F6F8FA #F6F8FA #000000
+        active_workspace #F6F8FA #F6F8FA #777777
+        inactive_workspace #F6F8FA #F6F8FA #aaaaaa
     }
 }
 

@@ -73,7 +73,8 @@ ZSH_THEME="robbyrussell"
 plugins=(git vi-mode zsh-autosuggestions zsh-syntax-highlighting)
 
 source $ZSH/oh-my-zsh.sh
-
+PROMPT="  $PROMPT"
+PROMPT2="  $PROMPT2"
 # User configuration
 
 # export MANPATH="/usr/local/man:$MANPATH"
