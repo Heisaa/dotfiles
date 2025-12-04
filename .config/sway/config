@@ -61,7 +61,7 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
        xkb_options "grp:win_space_toggle,caps:escape" 
     }
 
-  input type:mouse {
+  input type:pointer {
     accel_profile flat
   }
 #
@@ -80,8 +80,10 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
 
     # Start your launcher
     #bindsym $mod+d exec $menu
-    bindsym $mod+d exec foot --app-id=launcher ~/.config/sway/sway-launcher-desktop.sh
+    #bindsym $mod+d exec $term --app-id=launcher ~/.config/sway/sway-launcher-desktop.sh
+    bindsym $mod+d exec $term start --class launcher ~/.config/sway/sway-launcher-desktop.sh
     for_window [app_id="^launcher$"] floating enable, border none
+
 
     # Drag floating windows by holding down $mod and left mouse button.
     # Resize them with right mouse button + $mod.
@@ -238,11 +240,11 @@ bar {
     status_command while ~/.config/sway/status.sh; do sleep 1; done
 
     colors {
-        statusline #000000
-        background #F6F8FA
-        focused_workspace  #F6F8FA #F6F8FA #000000
-        active_workspace #F6F8FA #F6F8FA #777777
-        inactive_workspace #F6F8FA #F6F8FA #aaaaaa
+        statusline #ffffff
+        background #000000
+        focused_workspace  #000000 #000000 #ffffff
+        active_workspace #000000 #000000 #bbbbbb
+        inactive_workspace #000000 #000000 #555555
     }
 }
 
