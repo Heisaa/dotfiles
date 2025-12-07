@@ -89,6 +89,7 @@ PROMPT2="  $PROMPT2"
 #   export EDITOR='nvim'
 # fi
 
+export EDITOR='nvim'
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
 #
@@ -120,3 +121,11 @@ alias gp='git push'
 alias k=kubectl
 eval $(keychain --eval --quiet id_ed25519)
 export PATH="$HOME/.npm-global/bin:$PATH"
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/home/hsa/.lmstudio/bin"
+# End of LM Studio CLI section
+
+
+# opencode
+export PATH=/home/hsa/.opencode/bin:$PATH

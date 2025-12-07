@@ -366,3 +366,4 @@ if [ -t 1 ]; then
 else
   echo "${COMMAND}"
 fi
+
