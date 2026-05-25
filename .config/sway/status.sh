@@ -3,7 +3,7 @@
 # If not, do "killall swaybar" and $mod+Shift+c to reload the configuration.
 
 # Produces "21 days", for example
-uptime_formatted=$(uptime | cut -d ',' -f1  | cut -d ' ' -f4,5)
+uptime_formatted=$(uptime | cut -d ',' -f1 | cut -d ' ' -f4,5)
 
 # The abbreviated weekday (e.g., "Sat"), followed by the ISO-formatted date
 # like 2018-10-06 and the time (e.g., 14:01)
@@ -13,16 +13,29 @@ date_formatted=$(date "+%a %F %H:%M")
 battery_level=$(cat /sys/class/power_supply/BAT0/capacity)
 battery_status=$(cat /sys/class/power_supply/BAT0/status)
 
-audio_volume=$(wpctl get-volume @DEFAULT_AUDIO_SINK@|\
-awk '{print $3} {print $2*100}')
+audio_volume=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ |
+  awk '{print $3} {print $2*100}')
 
 language=$(swaymsg -t get_inputs | jq -r 'map(select(has("xkb_active_layout_name")))[0].xkb_active_layout_name')
 
 current=$(brightnessctl g)
 max=$(brightnessctl m)
-brightness=$(( 100 * current / max ))
+brightness=$((100 * current / max))
+
+# Wifi signal strength as [###---]
+# info=$(nmcli -t -f SIGNAL,SSID dev wifi list --rescan no 2>/dev/null | grep -m1 ":")
+# if [[ -z "$info" ]]; then
+#   echo "[-off-]"
+#   return
+# fi
+# percent=$(echo "$info" | cut -d: -f1)
+# filled=$((percent * 6 / 100))
+# empty=$((6 - filled))
+#
+# wifi_bar=$(printf '#%.0s' $(seq 1 $filled 2>/dev/null))
+# wifi_bar+=$(printf -- '-%.0s' $(seq 1 $empty 2>/dev/null))
+# wifi_strength=$(awk 'NR==3 {printf "%.0f", $3 * 100 / 70}' /proc/net/wireless 2>/dev/null)
 
 # Emojis and characters for the status bar
 # 💎 💻 💡 🔌 ⚡ 📁 \|
-echo  $language Brightness $brightness% Volume $audio_volume% $battery_status $battery_level% $date_formatted
-
+echo $language Brightness $brightness% Volume $audio_volume% $battery_status $battery_level% $date_formatted

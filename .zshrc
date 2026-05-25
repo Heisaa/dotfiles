@@ -112,8 +112,6 @@ npm() {
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-
-alias claude="/home/hsa/.claude/local/claude"
 alias gs='git status'
 alias ga='git add'
 alias gc='git commit'
@@ -129,3 +127,7 @@ export PATH="$PATH:/home/hsa/.lmstudio/bin"
 
 # opencode
 export PATH=/home/hsa/.opencode/bin:$PATH
+
+source ~/.nvm/nvm.sh
+
+export PATH="$HOME/.local/bin:$PATH"

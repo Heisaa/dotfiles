@@ -1,0 +1,30 @@
+# Sway Dark Theme - High Contrast
+# class                 border  backgr. text    indicator child_border
+client.focused          #ffffff #000000 #ffffff #ffffff   #ffffff
+client.focused_inactive #666666 #1a1a1a #cccccc #666666   #666666
+client.unfocused        #333333 #0a0a0a #666666 #333333   #333333
+client.urgent           #ff0000 #330000 #ffffff #ff0000   #ff0000
+client.placeholder      #ffffff #000000 #ffffff #ffffff   #ffffff
+client.background       #000000
+
+# Bar colors
+bar {
+    position top
+    strip_workspace_numbers yes
+
+    # When the status_command prints a new line to stdout, swaybar updates.
+    # The default just shows the current date and time.
+    status_command while ~/.config/sway/status.sh; do sleep 1; done
+    colors {
+        background #000000
+        statusline #ffffff
+        separator  #404040
+        
+        # class            border  backgr. text
+        focused_workspace  #000000 #000000 #ffffff
+        active_workspace   #000000 #000000 #bfbfbf
+        inactive_workspace #000000 #000000 #737373
+        urgent_workspace   #000000 #000000 #ffffff
+        binding_mode       #000000 #000000 #d9d9d9
+    }
+}
