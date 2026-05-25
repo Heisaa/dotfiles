@@ -112,3 +112,4 @@ alias white='ssh white-buddog@192.168.1.202 -i ~/.ssh/office-cluster'
 alias k=kubectl
 alias main='zellij a -c main'
 eval $(keychain --eval --quiet id_ed25519)
+export PATH="$HOME/.local/bin:$PATH"

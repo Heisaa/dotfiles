@@ -101,6 +101,8 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
     bindsym $mod+Shift+s exec grim -g "$(slurp -d)" - | wl-copy
 
     for_window [app_id="blueman-manager"] floating enable, border normal
+    for_window [window_type="dialog"] floating enable
+    for_window [app_id="move-reminder-timer"] floating enable
 		default_border none
 		default_floating_border none
 
