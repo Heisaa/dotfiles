@@ -20,7 +20,7 @@ end
 
 local function scheme_for(theme)
   if theme == "light" then
-    return "Github (Gogh)"
+    return "Google (light) (terminal.sexy)"
   end
   return "3024 (base16)"
 end

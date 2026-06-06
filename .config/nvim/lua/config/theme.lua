@@ -1,6 +1,6 @@
 local M = {}
 
-M.default = "blueprint"
+M.default = "github_light"
 M.file = vim.fn.stdpath("config") .. "/.colorscheme"
 
 local function notify(message, level)
