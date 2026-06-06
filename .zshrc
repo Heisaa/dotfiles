@@ -91,6 +91,14 @@ PROMPT2="  $PROMPT2"
 
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
+#
+npm() {
+  if [ "$1" = "install" ] || [ "$1" = "i" ]; then
+    sfw command npm "$@"
+  else
+    command npm "$@"
+  fi
+}
 
 unsetopt PROMPT_SP
 # Set personal aliases, overriding those provided by oh-my-zsh libs,
@@ -112,4 +120,4 @@ alias white='ssh white-buddog@192.168.1.202 -i ~/.ssh/office-cluster'
 alias k=kubectl
 alias main='zellij a -c main'
 eval $(keychain --eval --quiet id_ed25519)
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.npm-global/bin:$PATH"

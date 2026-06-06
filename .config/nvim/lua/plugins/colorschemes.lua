@@ -1,22 +1,29 @@
-local palettes = {
-  github_dark_default = {
-    bg0 = "#000000",
-    bg1 = "#000000",
-    bg2 = "#000000"
-  }
-}
-
 return {
   {
+    dir = "/home/hsa/Projects/blueprint",
+    name = "blueprint",
+    lazy = false,
+    priority = 1000,
+  },
+  {
+    "google/vim-colorscheme-primary",
+    lazy = false,
+    priority = 900,
+  },
+  {
     "projekt0n/github-nvim-theme",
-    lazy = false, -- make sure we load this during startup if it is your main colorscheme
-    priority = 1000, -- make sure to load this before all the other start plugins
+    lazy = false,
+    priority = 900,
     config = function()
-      require("github-theme").setup({
-        --palettes = palettes,
-      })
-
-      vim.cmd("colorscheme github_light_default")
+      require("github-theme").setup({})
     end,
+  },
+  {
+    "LazyVim/LazyVim",
+    opts = {
+      colorscheme = function()
+        require("config.theme").apply()
+      end,
+    },
   },
 }

@@ -14,7 +14,7 @@ set $down j
 set $up k
 set $right l
 # Your preferred terminal emulator
-set $term wezterm
+set $term foot
 # Your preferred application launcher
 # Note: pass the final command to swaymsg so that the resulting window can be opened
 # on the original workspace that the command was run on.
@@ -80,9 +80,9 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
 
     # Start your launcher
     #bindsym $mod+d exec $menu
-    #bindsym $mod+d exec $term --app-id=launcher ~/.config/sway/sway-launcher-desktop.sh
-    bindsym $mod+d exec $term start --class launcher ~/.config/sway/sway-launcher-desktop.sh
-    for_window [app_id="^launcher$"] floating enable, border none
+    bindsym $mod+d exec $term --app-id=launcher ~/.config/sway/sway-launcher-desktop.sh
+    # bindsym $mod+d exec $term --class launcher ~/.config/sway/sway-launcher-desktop.sh
+    for_window [app_id="^launcher$"] floating enable, border none,  resize set width 400 px height 600 px
 
 
     # Drag floating windows by holding down $mod and left mouse button.
@@ -103,7 +103,7 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
     for_window [app_id="blueman-manager"] floating enable, border normal
     for_window [window_type="dialog"] floating enable
     for_window [app_id="move-reminder-timer"] floating enable
-		default_border none
+		default_border pixel 1
 		default_floating_border none
 
     # Special keys
@@ -178,7 +178,7 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
     bindsym $mod+s layout stacking
     bindsym $mod+x layout tabbed
     bindsym $mod+z layout default
-    #bindsym $mod+e layout toggle split
+    bindsym $mod+c layout toggle split
 
     # Make the current focus fullscreen
     bindsym $mod+f fullscreen
@@ -191,6 +191,10 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
 
     # Move focus to the parent container
     #bindsym $mod+a focus parent
+
+    
+    bindsym $mod+Shift+d exec ~/.config/scripts/theme.sh dark
+    bindsym $mod+Shift+f exec ~/.config/scripts/theme.sh light
 #
 # Scratchpad:
 #
@@ -227,6 +231,15 @@ mode "resize" {
     bindsym Escape mode "default"
 }
 bindsym $mod+period mode "resize"
+
+
+# Colors:
+# class                 border  bground text    indicator child_border
+client.focused          #000000 #000000 #FFFFFF #3971ED   #000000
+client.focused_inactive #000000 #000000 #FFFFFF #000000   #000000
+client.unfocused        #000000 #000000 #888888 #000000   #000000
+client.urgent           #000000 #900000 #FFFFFF #900000   #900000
+client.placeholder      #000000 #000000 #FFFFFF #000000   #000000
 
 #
 # Status Bar:

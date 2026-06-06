@@ -1,0 +1,248 @@
+// Themes derived from ~/.config/foot/foot.ini palettes.
+// Complete format so the tab/status bars blend into the terminal
+// background instead of sitting in dark blocks. Kept subtle: bars use
+// the bg colour, only the active tab/pane gets a soft accent.
+themes {
+    // ---- [colors-light] : Catppuccin Latte -------------------------------
+    foot-light {
+        // general text + the bars: background == terminal bg so they blend
+        text_unselected {
+            base 76 79 105        // fg  #4c4f69
+            background 255 255 255 // bg  #ffffff
+            emphasis_0 254 100 11  // orange
+            emphasis_1 30 102 245  // blue
+            emphasis_2 64 160 43   // green
+            emphasis_3 234 118 203 // magenta
+        }
+        text_selected {
+            base 76 79 105
+            background 230 233 239 // surface  #e6e9ef (very subtle)
+            emphasis_0 254 100 11
+            emphasis_1 30 102 245
+            emphasis_2 64 160 43
+            emphasis_3 234 118 203
+        }
+        // inactive tabs / mode pills: same as the bar background
+        ribbon_unselected {
+            base 76 79 105
+            background 255 255 255
+            emphasis_0 254 100 11
+            emphasis_1 30 102 245
+            emphasis_2 64 160 43
+            emphasis_3 234 118 203
+        }
+        // active tab / active mode: soft accent so it stands out gently
+        ribbon_selected {
+            base 255 255 255       // text on accent
+            background 30 102 245  // blue
+            emphasis_0 254 100 11
+            emphasis_1 220 138 120
+            emphasis_2 64 160 43
+            emphasis_3 234 118 203
+        }
+        table_title {
+            base 30 102 245
+            background 255 255 255
+            emphasis_0 254 100 11
+            emphasis_1 30 102 245
+            emphasis_2 64 160 43
+            emphasis_3 234 118 203
+        }
+        table_cell_unselected {
+            base 76 79 105
+            background 255 255 255
+            emphasis_0 254 100 11
+            emphasis_1 30 102 245
+            emphasis_2 64 160 43
+            emphasis_3 234 118 203
+        }
+        table_cell_selected {
+            base 76 79 105
+            background 230 233 239
+            emphasis_0 254 100 11
+            emphasis_1 30 102 245
+            emphasis_2 64 160 43
+            emphasis_3 234 118 203
+        }
+        list_unselected {
+            base 76 79 105
+            background 255 255 255
+            emphasis_0 254 100 11
+            emphasis_1 30 102 245
+            emphasis_2 64 160 43
+            emphasis_3 234 118 203
+        }
+        list_selected {
+            base 76 79 105
+            background 230 233 239
+            emphasis_0 254 100 11
+            emphasis_1 30 102 245
+            emphasis_2 64 160 43
+            emphasis_3 234 118 203
+        }
+        frame_selected {
+            base 30 102 245        // active pane border: blue
+            background 255 255 255
+            emphasis_0 254 100 11
+            emphasis_1 30 102 245
+            emphasis_2 64 160 43
+            emphasis_3 234 118 203
+        }
+        frame_highlight {
+            base 254 100 11        // orange
+            background 255 255 255
+            emphasis_0 254 100 11
+            emphasis_1 254 100 11
+            emphasis_2 254 100 11
+            emphasis_3 254 100 11
+        }
+        exit_code_success {
+            base 64 160 43         // green
+            background 255 255 255
+            emphasis_0 30 102 245
+            emphasis_1 64 160 43
+            emphasis_2 30 102 245
+            emphasis_3 234 118 203
+        }
+        exit_code_error {
+            base 210 15 57         // red
+            background 255 255 255
+            emphasis_0 254 100 11
+            emphasis_1 254 100 11
+            emphasis_2 254 100 11
+            emphasis_3 254 100 11
+        }
+        multiplayer_user_colors {
+            player_1 30 102 245
+            player_2 254 100 11
+            player_3 64 160 43
+            player_4 234 118 203
+            player_5 23 146 153
+            player_6 223 142 29
+            player_7 210 15 57
+            player_8 136 57 239
+            player_9 30 102 245
+            player_10 254 100 11
+        }
+    }
+
+    // ---- [colors-dark] : Catppuccin Mocha (black bg) ---------------------
+    foot-dark {
+        text_unselected {
+            base 205 214 244       // fg  #cdd6f4
+            background 0 0 0       // bg  #000000
+            emphasis_0 250 179 135 // peach
+            emphasis_1 137 180 250 // blue
+            emphasis_2 166 227 161 // green
+            emphasis_3 245 194 231 // pink
+        }
+        text_selected {
+            base 205 214 244
+            background 49 50 68     // surface0  #313244
+            emphasis_0 250 179 135
+            emphasis_1 137 180 250
+            emphasis_2 166 227 161
+            emphasis_3 245 194 231
+        }
+        ribbon_unselected {
+            base 205 214 244
+            background 0 0 0
+            emphasis_0 250 179 135
+            emphasis_1 137 180 250
+            emphasis_2 166 227 161
+            emphasis_3 245 194 231
+        }
+        ribbon_selected {
+            base 0 0 0
+            background 137 180 250  // blue
+            emphasis_0 250 179 135
+            emphasis_1 245 224 220
+            emphasis_2 166 227 161
+            emphasis_3 245 194 231
+        }
+        table_title {
+            base 137 180 250
+            background 0 0 0
+            emphasis_0 250 179 135
+            emphasis_1 137 180 250
+            emphasis_2 166 227 161
+            emphasis_3 245 194 231
+        }
+        table_cell_unselected {
+            base 205 214 244
+            background 0 0 0
+            emphasis_0 250 179 135
+            emphasis_1 137 180 250
+            emphasis_2 166 227 161
+            emphasis_3 245 194 231
+        }
+        table_cell_selected {
+            base 205 214 244
+            background 49 50 68
+            emphasis_0 250 179 135
+            emphasis_1 137 180 250
+            emphasis_2 166 227 161
+            emphasis_3 245 194 231
+        }
+        list_unselected {
+            base 205 214 244
+            background 0 0 0
+            emphasis_0 250 179 135
+            emphasis_1 137 180 250
+            emphasis_2 166 227 161
+            emphasis_3 245 194 231
+        }
+        list_selected {
+            base 205 214 244
+            background 49 50 68
+            emphasis_0 250 179 135
+            emphasis_1 137 180 250
+            emphasis_2 166 227 161
+            emphasis_3 245 194 231
+        }
+        frame_selected {
+            base 137 180 250
+            background 0 0 0
+            emphasis_0 250 179 135
+            emphasis_1 137 180 250
+            emphasis_2 166 227 161
+            emphasis_3 245 194 231
+        }
+        frame_highlight {
+            base 250 179 135
+            background 0 0 0
+            emphasis_0 250 179 135
+            emphasis_1 250 179 135
+            emphasis_2 250 179 135
+            emphasis_3 250 179 135
+        }
+        exit_code_success {
+            base 166 227 161
+            background 0 0 0
+            emphasis_0 137 180 250
+            emphasis_1 166 227 161
+            emphasis_2 137 180 250
+            emphasis_3 245 194 231
+        }
+        exit_code_error {
+            base 243 139 168
+            background 0 0 0
+            emphasis_0 250 179 135
+            emphasis_1 250 179 135
+            emphasis_2 250 179 135
+            emphasis_3 250 179 135
+        }
+        multiplayer_user_colors {
+            player_1 137 180 250
+            player_2 250 179 135
+            player_3 166 227 161
+            player_4 245 194 231
+            player_5 148 226 213
+            player_6 249 226 175
+            player_7 243 139 168
+            player_8 203 166 247
+            player_9 137 180 250
+            player_10 250 179 135
+        }
+    }
+}
