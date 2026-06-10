@@ -29,6 +29,9 @@ fi
 # WezTerm watches this state file and reloads itself.
 printf '%s\n' "$theme" > "$config_home/wezterm/current_theme"
 
+# Foot reads this when a new process starts.
+printf 'initial-color-theme=%s\n' "$theme" > "$config_home/foot/current-theme.ini"
+
 # Foot switches [colors-dark]/[colors-light] on SIGUSR1/SIGUSR2.
 if command -v pkill >/dev/null 2>&1; then
   pkill "-$foot_signal" -x foot 2>/dev/null || true

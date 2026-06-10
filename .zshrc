@@ -131,3 +131,6 @@ export PATH=/home/hsa/.opencode/bin:$PATH
 source ~/.nvm/nvm.sh
 
 export PATH="$HOME/.local/bin:$PATH"
+
+export ANDROID_HOME="$HOME/Android/Sdk"
+export PATH="$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools"
