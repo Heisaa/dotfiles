@@ -121,3 +121,5 @@ alias k=kubectl
 alias main='zellij a -c main'
 eval $(keychain --eval --quiet id_ed25519)
 export PATH="$HOME/.npm-global/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.cargo/bin:$PATH"
