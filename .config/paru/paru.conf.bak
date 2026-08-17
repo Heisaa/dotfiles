@@ -37,6 +37,3 @@ BottomUp
 #FileManager = vifm
 #MFlags = --skippgpcheck
 #Sudo = doas
-
-[bin]
-PreBuildCommand = '/home/hsa/.local/bin/aur-scan' scan .
