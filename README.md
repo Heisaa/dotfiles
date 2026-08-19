@@ -80,17 +80,31 @@ stow -nv nvim    # Verbose dry run
 
 ### Conflicts with existing files
 
-If you already have config files, Stow will refuse to overwrite them. You'll need to:
+If you already have config files, Stow will refuse to overwrite them. Use
+`stow-backup.sh` in this repo to rename every conflicting file/folder to
+`<name>.bak`:
 
-1. Back up existing configs:
-   ```bash
-   mv ~/.config/nvim ~/.config/nvim.backup
-   ```
+```bash
+cd ~/dotfiles
+./stow-backup.sh -n     # dry run: list what would be renamed
+./stow-backup.sh        # do it
+stow -t ~ .
+```
 
-2. Then run stow:
-   ```bash
-   stow nvim
-   ```
+It walks the repo the way stow does, so an existing *directory* is not treated
+as a conflict — `~/.config` is left alone and only the real collisions move
+(e.g. `~/.config/nvim` → `~/.config/nvim.bak`). Symlinks that already point
+into this repo are skipped, so it is safe to re-run after a partial stow.
+
+Options: `-t` target dir (default `$HOME`), `-s` backup suffix (default
+`.bak`), `-v` verbose, `-h` help. If a `.bak` already exists it uses
+`.bak.1`, `.bak.2`, …
+
+To restore a backup, just move it back:
+
+```bash
+rm ~/.config/nvim && mv ~/.config/nvim.bak ~/.config/nvim
+```
 
 ### Wrong target directory
 
