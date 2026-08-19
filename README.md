@@ -76,12 +76,16 @@ stow -nv .     # Verbose dry run
 
 ### Conflicts with existing files
 
-If you already have config files, Stow will refuse to overwrite them. You'll need to:
+If you already have config files, Stow will refuse to overwrite them. Use
+`stow-backup.sh` in this repo to rename every conflicting file/folder to
+`<name>.bak`:
 
-1. Back up existing configs:
-   ```bash
-   mv ~/.config/nvim ~/.config/nvim.backup
-   ```
+```bash
+cd ~/dotfiles
+./stow-backup.sh -n     # dry run: list what would be renamed
+./stow-backup.sh        # do it
+stow -t ~ .
+```
 
 2. Then run stow:
    ```bash
