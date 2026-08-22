@@ -50,6 +50,10 @@
         {
           "path": "~/.kube",
           "mode": "deny"
+        },
+        {
+          "path": "~/.zsh_history",
+          "mode": "deny"
         }
       ],
       "envVars": [
@@ -108,6 +112,14 @@
         "*.pkgbuild.com",
         "mirrors.kernel.org",
         "api.anthropic.com"
+      ]
+    },
+    "filesystem": {
+      "denyRead": [
+        "~/.claude/projects"
+      ],
+      "allowRead": [
+        "~/.claude/projects/-home-hsa-dotfiles/memory"
       ]
     }
   }
