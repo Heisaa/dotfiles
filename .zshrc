@@ -77,6 +77,10 @@ PROMPT="  $PROMPT"
 PROMPT2="  $PROMPT2"
 # User configuration
 
+source /usr/share/zsh/plugins/zsh-autocomplete/zsh-autocomplete.plugin.zsh
+#source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
@@ -92,10 +96,10 @@ PROMPT2="  $PROMPT2"
 export EDITOR='nvim'
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
-#
+
 npm() {
   if [ "$1" = "install" ] || [ "$1" = "i" ]; then
-    sfw command npm "$@"
+    sfw npm "$@"
   else
     command npm "$@"
   fi
@@ -117,7 +121,7 @@ alias ga='git add'
 alias gc='git commit'
 alias gp='git push'
 alias k=kubectl
-eval $(keychain --eval --quiet id_ed25519)
+# eval $(keychain --eval --quiet id_ed25519)
 export PATH="$HOME/.npm-global/bin:$PATH"
 
 # Added by LM Studio CLI (lms)
@@ -134,3 +138,4 @@ export PATH="$HOME/.local/bin:$PATH"
 
 export ANDROID_HOME="$HOME/Android/Sdk"
 export PATH="$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools"
+export PATH="/home/hsa/.cargo/bin:$PATH"

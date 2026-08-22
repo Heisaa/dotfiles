@@ -104,6 +104,8 @@ set $term foot
     for_window [app_id="move-reminder-timer"] floating enable
 		default_border pixel 1
 		default_floating_border none
+		titlebar_padding 4 1
+		titlebar_border_thickness 1
 
     # Special keys
     bindsym XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +3%
@@ -189,7 +191,8 @@ set $term foot
     bindsym $mod+space focus mode_toggle
 
     # Move focus to the parent container
-    #bindsym $mod+a focus parent
+    bindsym $mod+a focus parent
+    bindsym $mod+m focus child
 
     
     bindsym $mod+Shift+d exec ~/.config/scripts/theme.sh dark
@@ -234,9 +237,9 @@ bindsym $mod+period mode "resize"
 
 # Colors:
 # class                 border  bground text    indicator child_border
-client.focused          #000000 #000000 #FFFFFF #3971ED   #000000
-client.focused_inactive #000000 #000000 #FFFFFF #000000   #000000
-client.unfocused        #000000 #000000 #888888 #000000   #000000
+client.focused          #555555 #000000 #FFFFFF #3971ED   #000000
+client.focused_inactive #3a3a3a #000000 #FFFFFF #000000   #000000
+client.unfocused        #444444 #2e2e2e #888888 #2e2e2e   #2e2e2e
 client.urgent           #000000 #900000 #FFFFFF #900000   #900000
 client.placeholder      #000000 #000000 #FFFFFF #000000   #000000
 

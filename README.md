@@ -120,3 +120,26 @@ Using `paru` for AUR packages. If any configs depend on AUR packages, install th
 ```bash
 paru -S <package-name>
 ```
+
+## Claude Code (`.claude/`)
+
+Only Claude Code's *configuration* is tracked here; its runtime state stays in
+`~/.claude` as real files and is never symlinked:
+
+| Tracked (in this repo) | Not tracked (stays in `~/.claude`) |
+| --- | --- |
+| `settings.json` | `.credentials.json`, `history.jsonl`, `stats-cache.json` |
+| `agents/`, `commands/`, `hooks/`, `skills/` | `projects/`, `sessions/`, `session-env/`, `shell-snapshots/` |
+| | `plugins/`, `cache/`, `debug/`, `backups/`, `file-history/`, `paste-cache/` |
+
+`stow .` links the four directories themselves (not their contents), so any new
+agent, command, hook, or skill you add lands in this repo automatically.
+
+Note that `.claude/` doubles as this repo's own project-level Claude Code
+directory. `settings.local.json` and `.cc-writes/` therefore belong to *this
+project only* and are excluded from stow via `.stow-local-ignore` (and from git
+via `.gitignore`). If you add more project-only files there, list them in both.
+
+Since `.stow-local-ignore` exists, it fully replaces stow's built-in ignore
+list — the defaults (`.git`, `README.*`, `LICENSE.*`, ...) are repeated inside it
+and must be kept.
