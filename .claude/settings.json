@@ -4,6 +4,7 @@
     "rust-analyzer-lsp@claude-plugins-official": true
   },
   "effortLevel": "high",
+  "outputStyle": "Concise",
   "tui": "fullscreen",
   "voice": {
     "enabled": true,
