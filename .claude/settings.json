@@ -1,23 +1,66 @@
 {
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "model": "opus",
   "enabledPlugins": {
     "rust-analyzer-lsp@claude-plugins-official": true
   },
-  "effortLevel": "high",
   "outputStyle": "Concise",
-  "tui": "fullscreen",
-  "voice": {
-    "enabled": true,
-    "mode": "hold"
-  },
-  "theme": "light",
-  "voiceEnabled": true,
-  "agentPushNotifEnabled": true,
   "sandbox": {
     "enabled": true,
-    "autoAllowBashIfSandboxed": true,
     "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": true,
     "allowUnsandboxedCommands": false,
+    "network": {
+      "allowAllUnixSockets": true,
+      "allowLocalBinding": true,
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "codeload.github.com",
+        "*.githubusercontent.com",
+        "gitlab.com",
+        "bitbucket.org",
+        "registry.npmjs.org",
+        "registry.yarnpkg.com",
+        "nodejs.org",
+        "crates.io",
+        "*.crates.io",
+        "static.rust-lang.org",
+        "docs.rs",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "proxy.golang.org",
+        "sum.golang.org",
+        "dl.google.com",
+        "maven.google.com",
+        "repo1.maven.org",
+        "*.gradle.org",
+        "*.docker.io",
+        "production.cloudflare.docker.com",
+        "huggingface.co",
+        "*.huggingface.co",
+        "aur.archlinux.org",
+        "*.archlinux.org",
+        "*.pkgbuild.com",
+        "mirrors.kernel.org",
+        "api.anthropic.com"
+      ],
+      "strictAllowlist": true
+    },
+    "filesystem": {
+      "allowWrite": [
+        "/tmp",
+        "/tmp/.X11-unix"
+      ],
+      "denyRead": [
+        "~/.claude/projects"
+      ],
+      "allowRead": [
+        "~/.claude/projects/-home-hsa-dotfiles/memory"
+      ]
+    },
     "credentials": {
       "files": [
         {
@@ -79,49 +122,15 @@
           "mode": "deny"
         }
       ]
-    },
-    "network": {
-      "strictAllowlist": true,
-      "allowedDomains": [
-        "github.com",
-        "api.github.com",
-        "codeload.github.com",
-        "*.githubusercontent.com",
-        "gitlab.com",
-        "bitbucket.org",
-        "registry.npmjs.org",
-        "registry.yarnpkg.com",
-        "nodejs.org",
-        "crates.io",
-        "*.crates.io",
-        "static.rust-lang.org",
-        "docs.rs",
-        "pypi.org",
-        "files.pythonhosted.org",
-        "proxy.golang.org",
-        "sum.golang.org",
-        "dl.google.com",
-        "maven.google.com",
-        "repo1.maven.org",
-        "*.gradle.org",
-        "*.docker.io",
-        "production.cloudflare.docker.com",
-        "huggingface.co",
-        "*.huggingface.co",
-        "aur.archlinux.org",
-        "*.archlinux.org",
-        "*.pkgbuild.com",
-        "mirrors.kernel.org",
-        "api.anthropic.com"
-      ]
-    },
-    "filesystem": {
-      "denyRead": [
-        "~/.claude/projects"
-      ],
-      "allowRead": [
-        "~/.claude/projects/-home-hsa-dotfiles/memory"
-      ]
     }
-  }
+  },
+  "effortLevel": "high",
+  "tui": "fullscreen",
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
+  "theme": "light",
+  "agentPushNotifEnabled": true,
+  "voiceEnabled": true
 }
