@@ -92,12 +92,15 @@ PROMPT2="  $PROMPT2"
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
 #
-npm() {
-  if [ "$1" = "install" ] || [ "$1" = "i" ]; then
-    sfw command npm "$@"
-  else
-    command npm "$@"
-  fi
+npm () {
+	case "$1" in
+		install|i|add|ci|update|up|dedupe|exec)
+			sfw npm "$@"
+			;;
+		*)
+			command npm "$@"
+			;;
+	esac
 }
 
 unsetopt PROMPT_SP
