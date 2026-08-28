@@ -1,0 +1,176 @@
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
+personality = "pragmatic"
+default_permissions = "secure-workspace"
+approval_policy = "on-request"
+approvals_reviewer = "user"
+
+[permissions.secure-workspace]
+description = "Workspace access with common credential and secret files denied."
+extends = ":workspace"
+
+[permissions.secure-workspace.filesystem]
+# Linux expands recursive deny globs before starting the sandbox. Eight levels
+# covers typical source trees without making sandbox startup unnecessarily slow.
+glob_scan_max_depth = 8
+"~/.ssh" = "deny"
+"~/.gnupg" = "deny"
+"~/.aws" = "deny"
+"~/.azure" = "deny"
+"~/.oci" = "deny"
+"~/.kube" = "deny"
+"~/.docker/config.json" = "deny"
+"~/.config/containers/auth.json" = "deny"
+"~/.config/gcloud" = "deny"
+"~/.config/gh/hosts.yml" = "deny"
+"~/.config/glab-cli/config.yml" = "deny"
+"~/.config/op" = "deny"
+"~/.config/age" = "deny"
+"~/.config/sops/age" = "deny"
+"~/.config/rclone/rclone.conf" = "deny"
+"~/.config/pulumi/credentials.json" = "deny"
+"~/.config/pypoetry/auth.toml" = "deny"
+"~/.config/composer/auth.json" = "deny"
+"~/.local/share/keyrings" = "deny"
+"~/.password-store" = "deny"
+"~/.terraform.d/credentials.tfrc.json" = "deny"
+"~/.gem/credentials" = "deny"
+"~/.cargo/credentials.toml" = "deny"
+"~/.netrc" = "deny"
+"~/.npmrc" = "deny"
+"~/.pypirc" = "deny"
+"~/.git-credentials" = "deny"
+"~/.codex/auth.json" = "deny"
+
+[permissions.secure-workspace.filesystem.":workspace_roots"]
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+"**/*.key" = "deny"
+"**/*.pem" = "deny"
+"**/*.p12" = "deny"
+"**/*.pfx" = "deny"
+"**/*.jks" = "deny"
+"**/*.keystore" = "deny"
+"**/id_rsa" = "deny"
+"**/id_dsa" = "deny"
+"**/id_ecdsa" = "deny"
+"**/id_ed25519" = "deny"
+
+[permissions.secure-workspace.network]
+enabled = false
+
+[shell_environment_policy]
+ignore_default_excludes = false
+
+[projects."/home/hsa/Projects/zetajs"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/editor-test"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/marketPredict"]
+trust_level = "trusted"
+
+[projects."/home/hsa"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/agentTest"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/testudo"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/reviewFilter"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/resumeScreening"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/testudo-alt"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Documents/Codex/2026-05-25/could-you-help-me-to-findout"]
+trust_level = "trusted"
+
+[projects."/home/hsa/dotfiles"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/agentbox"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/lazy-plan"]
+trust_level = "trusted"
+
+[projects."/home/hsa/Projects/taskman"]
+trust_level = "trusted"
+
+[notice.model_migrations]
+"gpt-5.3-codex" = "gpt-5.4"
+
+[tui.model_availability_nux]
+"gpt-5.5" = 4
+"gpt-5.6-sol" = 2
+
+[marketplaces.openai-primary-runtime]
+last_updated = "2026-06-08T09:26:10Z"
+source_type = "local"
+source = "/home/hsa/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime"
+
+[marketplaces.openai-bundled]
+last_updated = "2026-06-11T08:06:10Z"
+source_type = "local"
+source = "/home/hsa/.codex/.tmp/bundled-marketplaces/openai-bundled"
+
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+
+[plugins."chrome@openai-bundled"]
+enabled = false
+
+[plugins."browser@openai-bundled"]
+enabled = true
+
+[desktop]
+ambient-suggestions-enabled = false
+conversationDetailMode = "STEPS_COMMANDS"
+
+[desktop.appearanceLightChromeTheme]
+accent = "#339cff"
+contrast = 45
+ink = "#1a1c1f"
+opaqueWindows = true
+surface = "#ffffff"
+
+[desktop.appearanceLightChromeTheme.fonts]
+
+[desktop.appearanceLightChromeTheme.semanticColors]
+diffAdded = "#00a240"
+diffRemoved = "#ba2623"
+skill = "#924ff7"
+
+[features]
+js_repl = false
+
+[mcp_servers.node_repl]
+args = []
+command = "/opt/codex-desktop/resources/node_repl"
+startup_timeout_sec = 120
+
+[mcp_servers.node_repl.env]
+NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS = "1000"
+NODE_REPL_NODE_MODULE_DIRS = ""
+NODE_REPL_NODE_PATH = "/opt/codex-desktop/resources/node-runtime/bin/node"
+NODE_REPL_TRUSTED_CODE_PATHS = "/home/hsa/.codex"
+CODEX_HOME = "/home/hsa/.codex"
+NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "2de792ebdf729e85542c94275f6654821dddce546d9c7374c915f2297529e313,74d26f7e32b0adbd469369271cce1f7b3e71fa7fcffba96956f3c18021a752b5,af4355610fd32eac824552a9012bbbe7eee218fe21a3d4396ddc928af2b907b4"
+BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
+NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER = "Control the in-app browser in conjunction with the Browser Plugin."
+NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME = "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative."
+BROWSER_USE_CODEX_APP_BUILD_FLAVOR = "prod"
+BROWSER_USE_CODEX_APP_VERSION = "26.602.40724"

@@ -16,6 +16,7 @@ _darcs
 ^/README.*
 ^/LICENSE.*
 ^/COPYING
+^/\.stowrc$
 
 # ... plus this repo's own Claude Code project files, which live in
 # .claude/ but must NOT be symlinked into ~/.claude/

@@ -2,7 +2,7 @@
   "permissions": {
     "defaultMode": "auto"
   },
-  "model": "opus",
+  "model": "opus[1m]",
   "enabledPlugins": {
     "rust-analyzer-lsp@claude-plugins-official": true
   },
@@ -13,8 +13,6 @@
     "autoAllowBashIfSandboxed": true,
     "allowUnsandboxedCommands": false,
     "network": {
-      "allowAllUnixSockets": true,
-      "allowLocalBinding": true,
       "allowedDomains": [
         "github.com",
         "api.github.com",
@@ -47,7 +45,9 @@
         "mirrors.kernel.org",
         "api.anthropic.com"
       ],
-      "strictAllowlist": true
+      "strictAllowlist": true,
+      "allowAllUnixSockets": true,
+      "allowLocalBinding": true
     },
     "filesystem": {
       "allowWrite": [
@@ -55,7 +55,9 @@
         "/tmp/.X11-unix"
       ],
       "denyRead": [
-        "~/.claude/projects"
+        "~/.claude/projects",
+        "/var/run/docker.sock",
+        "/run/docker.sock"
       ],
       "allowRead": [
         "~/.claude/projects/-home-hsa-dotfiles/memory"
@@ -131,6 +133,5 @@
     "mode": "hold"
   },
   "theme": "light",
-  "agentPushNotifEnabled": true,
-  "voiceEnabled": true
+  "agentPushNotifEnabled": true
 }

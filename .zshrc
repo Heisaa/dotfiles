@@ -121,40 +121,15 @@ alias ga='git add'
 alias gc='git commit'
 alias gp='git push'
 alias k=kubectl
-# eval $(keychain --eval --quiet id_ed25519)
-export PATH="$HOME/.npm-global/bin:$PATH"
+alias main='zellij a -c main'
 
-# Added by LM Studio CLI (lms)
-export PATH="$PATH:/home/hsa/.lmstudio/bin"
-# End of LM Studio CLI section
+# Added to path
+typeset -U path PATH
 
+path=(
+  "$HOME/.cargo/bin"
+  "$HOME/.npm-global/bin"
+  "$HOME/.local/bin"
+  $path
+)
 
-# opencode
-export PATH=/home/hsa/.opencode/bin:$PATH
-
-source ~/.nvm/nvm.sh
-
-export PATH="$HOME/.local/bin:$PATH"
-
-export ANDROID_HOME="$HOME/Android/Sdk"
-export PATH="$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools"
-export PATH="/home/hsa/.cargo/bin:$PATH"
-
-deepclaude() {
-  local secrets="$HOME/.config/hemlis/deepinfra.env"
-
-  if [[ ! -r "$secrets" ]]; then
-    echo "Missing $secrets" >&2
-    return 1
-  fi
-
-  local DEEPINFRA_TOKEN
-  source "$secrets"
-
-  ANTHROPIC_BASE_URL="https://api.deepinfra.com/anthropic" \
-  ANTHROPIC_AUTH_TOKEN="$DEEPINFRA_TOKEN" \
-  ANTHROPIC_MODEL="zai-org/GLM-5.3-Flash" \
-  CLAUDE_CODE_MAX_CONTEXT_TOKENS=1048576 \
-  CLAUDE_CODE_MAX_OUTPUT_TOKENS=16384 \
-  claude "$@"
-}
