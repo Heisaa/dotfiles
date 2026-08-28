@@ -122,7 +122,14 @@ alias black='ssh black-buddog@192.168.1.203 -i ~/.ssh/office-cluster'
 alias white='ssh white-buddog@192.168.1.202 -i ~/.ssh/office-cluster'
 alias k=kubectl
 alias main='zellij a -c main'
-eval $(keychain --eval --quiet id_ed25519)
-export PATH="$HOME/.npm-global/bin:$PATH"
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/.cargo/bin:$PATH"
+
+# Added to path
+typeset -U path PATH
+
+path=(
+  "$HOME/.cargo/bin"
+  "$HOME/.npm-global/bin"
+  "$HOME/.local/bin"
+  $path
+)
+
