@@ -1,0 +1,6 @@
+schemaVersion: "1"
+agent: codex
+kits:
+  - ${HOME}/dotfiles/.sbx/kits/codex-defaults
+  - ${HOME}/dotfiles/.sbx/kits/codex-statusline
+  - ${HOME}/dotfiles/.sbx/kits/node-toolchain

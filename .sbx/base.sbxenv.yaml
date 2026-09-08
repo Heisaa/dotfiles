@@ -1,0 +1,9 @@
+schemaVersion: "1"
+agent: claude
+# Kit references, not names: sbx has no kit registry, so each entry is a
+# directory / ZIP / OCI reference. Absolute so resolution does not depend on
+# which directory sbx was invoked from.
+kits:
+  - ${HOME}/dotfiles/.sbx/kits/claude-defaults
+  - ${HOME}/dotfiles/.sbx/kits/claude-statusline
+  - ${HOME}/dotfiles/.sbx/kits/node-toolchain

@@ -1,0 +1,38 @@
+schemaVersion: "2"
+kind: mixin
+name: claude-defaults
+version: "0.2.0"
+displayName: Claude Code defaults
+description: Seeds ~/.claude/settings.json and ~/.claude/CLAUDE.md with default Claude Code settings and instructions for hosts that have no ~/.claude to copy from. Existing keys and files are never overwritten.
+sourceURL: https://github.com/Heisaa/dotfiles
+
+requires:
+  agent: claude
+
+setup:
+  startup:
+    - description: Merge missing keys from settings.json defaults into ~/.claude/settings.json
+      user: "1000"
+      command:
+        - node
+        - -e
+        - |
+          const fs = require('fs'), os = require('os');
+          const home = os.homedir(), dir = home + '/.claude', path = dir + '/settings.json';
+          const defaults = JSON.parse(fs.readFileSync(home + '/.local/share/sbx/claude-defaults/settings.json', 'utf8'));
+          let settings = {};
+          try { settings = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
+          for (const [k, v] of Object.entries(defaults)) settings[k] ??= v;
+          fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n');
+    - description: Install the default global CLAUDE.md if ~/.claude/CLAUDE.md is absent
+      user: "1000"
+      command:
+        - node
+        - -e
+        - |
+          const fs = require('fs'), os = require('os');
+          const home = os.homedir(), dir = home + '/.claude', path = dir + '/CLAUDE.md';
+          if (fs.existsSync(path)) process.exit(0);
+          fs.mkdirSync(dir, { recursive: true });
+          fs.copyFileSync(home + '/.local/share/sbx/claude-defaults/CLAUDE.md', path);

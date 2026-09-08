@@ -29,7 +29,12 @@ fi
 # WezTerm watches this state file and reloads itself.
 printf '%s\n' "$theme" > "$config_home/wezterm/current_theme"
 
-# Foot switches [colors-dark]/[colors-light] on SIGUSR1/SIGUSR2.
+# Foot switches [colors-dark]/[colors-light] on SIGUSR1/SIGUSR2 for running
+# windows; initial-color-theme in foot.ini decides the theme for new ones.
+foot_ini="$config_home/foot/foot.ini"
+if [ -f "$foot_ini" ]; then
+  sed -i --follow-symlinks -E "s/^#?initial-color-theme=.*/initial-color-theme=$theme/" "$foot_ini"
+fi
 if command -v pkill >/dev/null 2>&1; then
   pkill "-$foot_signal" -x foot 2>/dev/null || true
   pkill "-$foot_signal" -x footclient 2>/dev/null || true

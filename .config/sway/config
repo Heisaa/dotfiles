@@ -20,13 +20,18 @@ set $term foot
 # on the original workspace that the command was run on.
 #set $menu dmenu_path | dmenu | xargs swaymsg exec --
 
+# Font for window titles and the bar; same family stack as the wallpaper (wallpaper/draw.py FONT).
+font pango:JetBrains Mono, DejaVu Sans Mono, monospace 10
+
 ### Output configuration
 #
 # Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
-output * bg /home/hsa/Pictures/pirlot_bath.jpg center
+#output * bg /home/hsa/Pictures/pirlot_bath.jpg center
 
 # Autostart
 #exec_always pkill kanshi; exec kanshi 
+# Live data wallpaper (see wallpaper/README.md). exec_always so a config reload restarts it.
+exec_always ~/.config/sway/wallpaper/wallpaper.sh
 
 #
 # Example configuration:
@@ -83,6 +88,8 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
     bindsym $mod+d exec $term --app-id=launcher ~/.config/sway/sway-launcher-desktop.sh
     # bindsym $mod+d exec $term --class launcher ~/.config/sway/sway-launcher-desktop.sh
     for_window [app_id="^launcher$"] floating enable, border none,  resize set width 400 px height 600 px
+    # Terminal programs started from the launcher open in a floating terminal
+    for_window [app_id="^launcher-term$"] floating enable, border none, resize set width 1000 px height 700 px
 
 
     # Drag floating windows by holding down $mod and left mouse button.
@@ -109,12 +116,15 @@ output * bg /home/hsa/Pictures/pirlot_bath.jpg center
 		titlebar_border_thickness 1
 
     # Special keys
-    bindsym XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +3%
-    bindsym XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -3%
-    bindsym XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle
+    # The bracket keeps the pattern from matching the shell running this bind.
+    set $refresh_status pkill -USR1 -f 'sway/statu[s].sh'
+    bindsym XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +3% && $refresh_status
+    bindsym XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -3% && $refresh_status
+    bindsym XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle && $refresh_status
+    bindsym XF86AudioMicMute exec pactl set-source-mute @DEFAULT_SOURCE@ toggle && $refresh_status
 
-    bindsym XF86MonBrightnessDown exec brightnessctl set 5%-
-    bindsym XF86MonBrightnessUp exec brightnessctl set +5%
+    bindsym XF86MonBrightnessDown exec brightnessctl set 5%- && $refresh_status
+    bindsym XF86MonBrightnessUp exec brightnessctl set +5% && $refresh_status
 #
 #
 # Moving around:
@@ -250,19 +260,24 @@ client.placeholder      #000000 #000000 #FFFFFF #000000   #000000
 # Read `man 5 sway-bar` for more information about this section.
 bar {
     position top
+    font pango:JetBrains Mono, DejaVu Sans Mono, monospace 10
     strip_workspace_numbers yes
     workspace_min_width 25 px
 
+    pango_markup enabled
+
     # When the status_command prints a new line to stdout, swaybar updates.
     # The default just shows the current date and time.
-    status_command while ~/.config/sway/status.sh; do sleep 1; done
+    status_command ~/.config/sway/status.sh
 
+    # Same greys as the wallpaper's mono tint (wallpaper/draw.py PALETTES):
+    # ink #e0e6eb, dim #858c94, faint #3d4247.
     colors {
-        statusline #ffffff
+        statusline #e0e6eb
         background #000000
-        focused_workspace  #000000 #000000 #ffffff
-        active_workspace #000000 #000000 #bbbbbb
-        inactive_workspace #000000 #000000 #555555
+        focused_workspace  #000000 #000000 #e0e6eb
+        active_workspace #000000 #000000 #858c94
+        inactive_workspace #000000 #000000 #555a60
     }
 }
 

@@ -70,7 +70,7 @@ ZSH_THEME="robbyrussell"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git vi-mode zsh-autosuggestions zsh-syntax-highlighting)
+plugins=(git)
 
 source $ZSH/oh-my-zsh.sh
 PROMPT="  $PROMPT"
@@ -93,14 +93,18 @@ PROMPT2="  $PROMPT2"
 # export ARCHFLAGS="-arch x86_64"
 #
 npm () {
-	case "$1" in
-		install|i|add|ci|update|up|dedupe|exec)
-			sfw npm "$@"
-			;;
-		*)
-			command npm "$@"
-			;;
-	esac
+	local arg
+
+	for arg in "$@"; do
+		case "$arg" in
+			install|i|add|ci|update|up|dedupe|exec)
+				sfw npm "$@"
+				return $?
+				;;
+		esac
+	done
+
+	command npm "$@"
 }
 
 unsetopt PROMPT_SP
@@ -112,7 +116,6 @@ unsetopt PROMPT_SP
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-alias gitdot='/usr/bin/git --git-dir=$HOME/dotfilesOld/ --work-tree=$HOME'
 alias gs='git status'
 alias ga='git add'
 alias gc='git commit'
@@ -123,13 +126,23 @@ alias white='ssh white-buddog@192.168.1.202 -i ~/.ssh/office-cluster'
 alias k=kubectl
 alias main='zellij a -c main'
 
+claude() {
+  ~/.local/bin/sbx-agent claude "$@"
+}
+
+codex() {
+  ~/.local/bin/sbx-agent codex "$@"
+}
+
 # Added to path
 typeset -U path PATH
 
 path=(
   "$HOME/.cargo/bin"
-  "$HOME/.npm-global/bin"
   "$HOME/.local/bin"
   $path
 )
+export npm_config_prefix="$HOME/.local"
 
+source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

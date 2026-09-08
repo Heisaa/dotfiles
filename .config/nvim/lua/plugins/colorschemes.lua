@@ -1,11 +1,5 @@
 return {
   {
-    dir = "/home/hsa/Projects/blueprint",
-    name = "blueprint",
-    lazy = false,
-    priority = 1000,
-  },
-  {
     "google/vim-colorscheme-primary",
     lazy = false,
     priority = 900,
