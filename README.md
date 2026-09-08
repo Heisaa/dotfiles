@@ -7,8 +7,7 @@ This repository uses GNU Stow to manage dotfiles on Arch Linux.
 ### 1. Install Stow
 
 ```bash
-sudo paru -S git
-sudo paru -S stow
+paru -S git stow
 ```
 
 ### 2. Clone This Repository
@@ -20,60 +19,57 @@ cd ~/dotfiles
 
 ## How Stow Works
 
-Stow creates symlinks from your home directory to files in this repository. Each top-level directory in this repo represents a "package" (e.g., `nvim/`, `zsh/`, `tmux/`).
+Stow creates symlinks from your home directory to files in this repository. This
+repo is a single package: its root mirrors `$HOME` directly, so paths are stored
+exactly where they belong relative to the home directory.
 
-### Directory Structure Example
+### Directory Structure
 
 ```
 ~/dotfiles/
-├── nvim/
-│   └── .config/
-│       └── nvim/
-│           └── init.vim
-├── zsh/
-│   ├── .zshrc
-│   └── .zshenv
-└── tmux/
-    └── .tmux.conf
+├── .claude/
+├── .codex/
+├── .config/
+│   ├── nvim/
+│   ├── sway/
+│   └── ...
+└── .zshrc
 ```
 
-When you run `stow nvim` from `~/dotfiles/`, it creates:
-- `~/.config/nvim/init.vim` → `~/dotfiles/nvim/.config/nvim/init.vim`
+Running `stow .` from `~/dotfiles/` creates:
+- `~/.config/nvim/` → `~/dotfiles/.config/nvim/`
+- `~/.zshrc` → `~/dotfiles/.zshrc`
+
+Stow ignores `.git`, `.gitignore`, and `README.*` by default, so they are not
+symlinked into `$HOME`.
 
 ## Basic Commands
 
-### Install (symlink) a package
+Run these from `~/dotfiles/`.
 
-```bash
-cd ~/dotfiles
-stow nvim        # Creates symlinks for nvim config
-stow zsh         # Creates symlinks for zsh config
-stow tmux        # Creates symlinks for tmux config
-```
-
-### Install all packages at once
+### Install (symlink) everything
 
 ```bash
 stow .
 ```
 
-### Remove (unlink) a package
+### Remove (unlink) everything
 
 ```bash
-stow -D nvim     # Removes nvim symlinks
+stow -D .
 ```
 
 ### Restow (useful after making changes)
 
 ```bash
-stow -R nvim     # Re-creates symlinks (removes old, adds new)
+stow -R .
 ```
 
 ### Dry run (see what would happen)
 
 ```bash
-stow -n nvim     # Shows what would be done without doing it
-stow -nv nvim    # Verbose dry run
+stow -n .      # Shows what would be done without doing it
+stow -nv .     # Verbose dry run
 ```
 
 ## Common Issues
@@ -89,7 +85,7 @@ If you already have config files, Stow will refuse to overwrite them. You'll nee
 
 2. Then run stow:
    ```bash
-   stow nvim
+   stow .
    ```
 
 ### Wrong target directory
@@ -98,20 +94,19 @@ By default, Stow symlinks to the parent directory. Always run stow commands from
 
 ```bash
 cd ~/dotfiles    # Important!
-stow nvim        # This will symlink to ~/
+stow .           # This will symlink to ~/
 ```
 
 To specify a different target:
 ```bash
-stow -t ~ nvim   # Explicitly target home directory
+stow -t ~ .      # Explicitly target home directory
 ```
 
 ## Tips
 
-- Keep each application's configs in its own directory
 - Mirror the directory structure as it should appear in `$HOME`
-- Use `stow -nv` to preview changes before applying
-- You can stow multiple packages: `stow nvim zsh tmux`
+- Use `stow -nv .` to preview changes before applying
+- After adding new files, `stow -R .` to pick them up
 
 ## AUR Packages Note
 

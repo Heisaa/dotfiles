@@ -12,7 +12,10 @@ trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
 IFS=$'\n\t'
 DEL=$'\34'
 
-TERMINAL_COMMAND="${TERMINAL_COMMAND:="$TERMINAL -e"}"
+# Terminal used for command-provider entries and Terminal=true .desktop apps.
+# Defaults to foot with a dedicated app-id so sway can float it (see for_window rule in sway config).
+TERMINAL="${TERMINAL:-foot}"
+TERMINAL_COMMAND="${TERMINAL_COMMAND:="$TERMINAL --app-id=launcher-term"}"
 GLYPH_COMMAND="${GLYPH_COMMAND-  }"
 GLYPH_DESKTOP="${GLYPH_DESKTOP-  }"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/sway-launcher-desktop"

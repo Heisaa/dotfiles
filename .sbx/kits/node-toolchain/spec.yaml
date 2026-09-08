@@ -1,0 +1,23 @@
+schemaVersion: "2"
+kind: mixin
+name: node-toolchain
+version: "0.1.0"
+displayName: Node toolchain
+description: Installs the Node.js major version and extra packages this workspace expects, replacing the older ones baked into the agent image.
+sourceURL: https://github.com/Heisaa/dotfiles
+
+setup:
+  startup:
+    - description: Install Node.js and extra packages declared in packages.conf
+      user: "0"
+      command:
+        - bash
+        - -c
+        # files/ is copied at create time, before startup steps run, but the
+        # copy has been observed landing after the dispatcher started; wait
+        # briefly (up to 10 s) for the script rather than fail on a race.
+        - |
+          s=/home/agent/.local/share/sbx/node-toolchain/setup.sh
+          for _ in $(seq 100); do [ -f "$s" ] && break; sleep 0.1; done
+          [ -f "$s" ] || { echo "node-toolchain: $s missing" >&2; exit 1; }
+          exec bash "$s"

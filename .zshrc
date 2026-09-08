@@ -139,10 +139,10 @@ typeset -U path PATH
 
 path=(
   "$HOME/.cargo/bin"
-  "$HOME/.npm-global/bin"
   "$HOME/.local/bin"
   $path
 )
+export npm_config_prefix="$HOME/.local"
 
 source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

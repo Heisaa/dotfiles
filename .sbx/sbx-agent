@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+KIT_ROOT="$HOME/dotfiles/.sbx/kits"
+AGENT="${1:-}"
+shift || true
+
+case "$AGENT" in
+claude) KITS=(claude-defaults claude-statusline node-toolchain) ;;
+codex) KITS=(codex-defaults codex-statusline node-toolchain) ;;
+*)
+  echo "usage: sbx-agent {claude|codex} [args...]"
+  exit 2
+  ;;
+esac
+
+# Canonical absolute path.
+PROJECT_DIR="$(cd "$PWD" && pwd -P)"
+
+# Human-readable project name.
+PROJECT="$(basename "$PROJECT_DIR")"
+PROJECT="$(
+  printf '%s' "$PROJECT" |
+    tr '[:upper:]_' '[:lower:]-' |
+    tr -cd 'a-z0-9.-'
+)"
+PROJECT="${PROJECT:0:32}"
+[[ -n "$PROJECT" ]] || PROJECT="project"
+
+# Distinguish projects with the same basename at different absolute paths.
+HASH="$(printf '%s' "$PROJECT_DIR" | cksum | awk '{print $1}')"
+SANDBOX="${AGENT}-${PROJECT}-${HASH}"
+
+# Create project sandbox if this is the first run.
+if ! sbx ls -q 2>/dev/null | grep -Fxq "$SANDBOX"; then
+  echo "→ Creating $AGENT sandbox: $SANDBOX"
+
+  KIT_ARGS=()
+  for KIT in "${KITS[@]}"; do
+    KIT_PATH="$KIT_ROOT/$KIT"
+    if [[ ! -d "$KIT_PATH" ]]; then
+      echo "Kit not found: $KIT_PATH" >&2
+      exit 1
+    fi
+    sbx kit validate "$KIT_PATH" || exit $?
+    KIT_ARGS+=(--kit "$KIT_PATH")
+  done
+
+  sbx create \
+    --name "$SANDBOX" \
+    "${KIT_ARGS[@]}" \
+    "$AGENT" \
+    "$PROJECT_DIR" || exit $?
+
+  # create returns before startup kits finish. For this newly created
+  # container, wait for the latest dispatcher run before updating/launching.
+  echo "→ Waiting for sandbox startup kits…"
+  sbx exec "$SANDBOX" sh -c '
+    log=/var/log/sbx-kit-startup.log
+    attempts=0
+    while [ "$attempts" -lt 300 ]; do
+      state=$(awk '\''
+        /^=== dispatcher run / { state = "running" }
+        /^fail / { state = "failed" }
+        /^=== dispatcher complete ===$/ { state = "complete" }
+        END { print state }
+      '\'' "$log" 2>/dev/null)
+      case "$state" in
+        complete) exit 0 ;;
+        failed)
+          echo "Startup kit failed:" >&2
+          tail -n 40 "$log" >&2
+          exit 1
+          ;;
+      esac
+      attempts=$((attempts + 1))
+      sleep 2
+    done
+    echo "Timed out after 10 minutes waiting for startup kits." >&2
+    tail -n 40 "$log" >&2
+    exit 1
+  ' || exit $?
+fi
+
+# Update agent.
+case "$AGENT" in
+claude)
+  BEFORE="$(
+    sbx exec "$SANDBOX" claude --version 2>/dev/null |
+      awk '{print $1}' |
+      tail -1
+  )"
+  echo "→ Checking Claude Code updates (${BEFORE:-unknown})…"
+  if sbx exec "$SANDBOX" claude update; then
+    AFTER="$(
+      sbx exec "$SANDBOX" claude --version 2>/dev/null |
+        awk '{print $1}' |
+        tail -1
+    )"
+    if [[ -n "$BEFORE" && -n "$AFTER" && "$BEFORE" != "$AFTER" ]]; then
+      echo "✓ Claude Code updated: $BEFORE → $AFTER"
+    else
+      echo "✓ Claude Code is current (${AFTER:-$BEFORE})"
+    fi
+  else
+    echo "⚠ Claude update check failed; starting existing version."
+  fi
+  ;;
+codex)
+  CURRENT="$(
+    sbx exec "$SANDBOX" sh -lc \
+      'codex --version 2>/dev/null | awk "{print \$NF}"' \
+      2>/dev/null | tail -1
+  )"
+  echo "→ Checking Codex updates (${CURRENT:-unknown})…"
+  LATEST="$(
+    sbx exec "$SANDBOX" npm view @openai/codex version 2>/dev/null |
+      tr -d '\r' |
+      tail -1
+  )"
+  if [[ -z "$LATEST" ]]; then
+    echo "⚠ Could not query latest Codex version; starting existing version."
+  elif [[ "$CURRENT" == "$LATEST" ]]; then
+    echo "✓ Codex is current ($CURRENT)"
+  else
+    echo "→ Updating Codex: ${CURRENT:-unknown} → $LATEST"
+    if sbx exec -u root "$SANDBOX" \
+      npm install -g "@openai/codex@$LATEST" --include=optional; then
+      echo "✓ Codex updated to $LATEST"
+    else
+      echo "⚠ Codex update failed; starting existing version."
+    fi
+  fi
+  ;;
+esac
+
+# Launch.
+echo "→ Starting $AGENT in $SANDBOX"
+echo
+if (($# > 0)); then
+  exec sbx run --name "$SANDBOX" -- "$@"
+else
+  exec sbx run --name "$SANDBOX"
+fi

@@ -1,0 +1,61 @@
+schemaVersion: "2"
+kind: mixin
+name: codex-statusline
+version: "0.1.1"
+displayName: Codex statusline
+description: Native Codex status line with context used and remaining five-hour and weekly quota.
+sourceURL: https://github.com/Heisaa/dotfiles
+
+requires:
+  agent: codex
+
+setup:
+  startup:
+    - description: Configure the default Codex statusline
+      user: "1000"
+      command:
+        - python3
+        - -c
+        - |
+          """Add the statusline default without rewriting existing TOML or preferences."""
+          
+          import copy
+          import os
+          from pathlib import Path
+          import tomllib
+          
+          home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+          path = home / "config.toml"
+          source = path.read_text() if path.exists() else ""
+          config = tomllib.loads(source)
+          if "status_line" in config.get("tui", {}):
+              raise SystemExit(0)
+          
+          items = '["context-used", "five-hour-limit", "weekly-limit"]'
+          expected = copy.deepcopy(config)
+          expected.setdefault("tui", {})["status_line"] = [
+              "context-used", "five-hour-limit", "weekly-limit"
+          ]
+          
+          # Try root dotted syntax first, then insert inside an existing tui table.
+          # Parse and compare the entire result so quoted tables, multiline strings,
+          # inline tables and unrelated settings cannot be accidentally changed.
+          lines = source.splitlines(keepends=True)
+          candidates = [f"tui.status_line = {items}\n" + source]
+          for index in range(len(lines) + 1):
+              prefix = "".join(lines[:index])
+              if prefix and not prefix.endswith("\n"):
+                  prefix += "\n"
+              candidates.append(prefix + f"status_line = {items}\n" + "".join(lines[index:]))
+          
+          for candidate in candidates:
+              try:
+                  valid = tomllib.loads(candidate) == expected
+              except tomllib.TOMLDecodeError:
+                  continue
+              if valid:
+                  home.mkdir(parents=True, exist_ok=True)
+                  path.write_text(candidate)
+                  break
+          else:
+              raise SystemExit("Cannot safely add tui.status_line; configure it manually in " + str(path))

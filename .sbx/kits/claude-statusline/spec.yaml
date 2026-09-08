@@ -1,0 +1,26 @@
+schemaVersion: "2"
+kind: mixin
+name: claude-statusline
+version: "0.1.0"
+displayName: Claude statusline
+description: Status line showing sandbox name, model, directory, git branch, context usage and remaining plan quota.
+sourceURL: https://github.com/Heisaa/dotfiles
+
+requires:
+  agent: claude
+
+setup:
+  startup:
+    - description: Point ~/.claude/settings.json at the statusline script
+      user: "1000"
+      command:
+        - node
+        - -e
+        - |
+          const fs = require('fs'), os = require('os');
+          const dir = os.homedir() + '/.claude', path = dir + '/settings.json';
+          let settings = {};
+          try { settings = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
+          settings.statusLine = { type: 'command', command: 'node ~/.claude/statusline.mjs' };
+          fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n');
