@@ -77,10 +77,6 @@ PROMPT="  $PROMPT"
 PROMPT2="  $PROMPT2"
 # User configuration
 
-#source /usr/share/zsh/plugins/zsh-autocomplete/zsh-autocomplete.plugin.zsh
-source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
-source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-
 # export MANPATH="/usr/local/man:$MANPATH"
 
 # You may need to manually set your language environment
@@ -96,13 +92,20 @@ source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zs
 export EDITOR='nvim'
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
+#
+npm () {
+	local arg
 
-npm() {
-  if [ "$1" = "install" ] || [ "$1" = "i" ]; then
-    sfw npm "$@"
-  else
-    command npm "$@"
-  fi
+	for arg in "$@"; do
+		case "$arg" in
+			install|i|add|ci|update|up|dedupe|exec)
+				sfw npm "$@"
+				return $?
+				;;
+		esac
+	done
+
+	command npm "$@"
 }
 
 # Set personal aliases, overriding those provided by Oh My Zsh libs,
@@ -123,6 +126,14 @@ alias gp='git push'
 alias k=kubectl
 alias main='zellij a -c main'
 
+claude() {
+  ~/.local/bin/sbx-agent claude "$@"
+}
+
+codex() {
+  ~/.local/bin/sbx-agent codex "$@"
+}
+
 # Added to path
 typeset -U path PATH
 
@@ -133,3 +144,5 @@ path=(
   $path
 )
 
+source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
