@@ -325,7 +325,10 @@ def run_app():
             s.area.queue_draw()
         on_ac = not data.power.present or data.power.on_ac
         interval = (config.TICK_AC if on_ac else config.TICK_BATTERY) if vis else max(5.0, config.TICK_BATTERY)
-        tick["id"] = GLib.timeout_add(int(interval * 1000), do_tick)
+        # Schedule against the wall clock rather than "interval after this tick finished",
+        # otherwise sampling time accumulates and the seconds readout skips a beat.
+        delay = interval - (time.time() % interval) + 0.02
+        tick["id"] = GLib.timeout_add(int(delay * 1000), do_tick)
         return False
 
     do_tick()
