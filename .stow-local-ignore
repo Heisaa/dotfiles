@@ -18,18 +18,4 @@ _darcs
 ^/COPYING
 ^/\.stowrc$
 
-# ... plus this repo's own Claude Code project files, which live in
-# .claude/ but must NOT be symlinked into ~/.claude/
-^/\.claude/settings\.local\.json
-^/\.claude/\.cc-writes
-
-# ... plus the Agentbox container's own state directory.
-^/\.agentbox
-
-# Never stow Codex credentials or runtime state
-^/\.codex/auth\.json$
-^/\.codex/sessions
-^/\.codex/log
-^/\.codex/cache
-^/\.codex/.*\.sqlite
-^/\.codex/history\.jsonl$
+sbx

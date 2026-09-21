@@ -1,0 +1,7 @@
+schemaVersion: "2"
+kind: mixin
+name: shared-skills
+version: "0.3.0"
+displayName: Shared agent skills
+description: Installs feature-planning, write-pr, and write-commit in the user-level skill directories for Codex and Claude Code.
+sourceURL: https://github.com/Heisaa/dotfiles

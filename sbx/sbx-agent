@@ -1,0 +1,349 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Resolve host-side symlinks before looking up kits beside this script.
+# For example, ~/.local/bin/sbx-agent may point into the shared .sbx folder.
+SBX_SCRIPT="${BASH_SOURCE[0]}"
+for ((SBX_LINK = 0; SBX_LINK < 40; SBX_LINK++)); do
+  SBX_CONFIG_ROOT="$(cd -P -- "$(dirname -- "$SBX_SCRIPT")" && pwd)" || exit 1
+  [[ -L "$SBX_SCRIPT" ]] || break
+  SBX_SCRIPT="$(readlink -- "$SBX_SCRIPT")" || exit 1
+  [[ "$SBX_SCRIPT" == /* ]] || SBX_SCRIPT="$SBX_CONFIG_ROOT/$SBX_SCRIPT"
+done
+if [[ -L "$SBX_SCRIPT" ]]; then
+  echo "Too many symlinks resolving sbx-agent" >&2
+  exit 1
+fi
+KIT_ROOT="$SBX_CONFIG_ROOT/kits"
+ACTION=run
+if [[ "${1:-}" == update ]]; then ACTION=update; shift; fi
+AGENT="${1:-}"
+shift || true
+case "$AGENT" in
+  claude|codex) ;;
+  *) echo "usage: sbx-agent [update] {claude|codex} [agent args...]" >&2; exit 2 ;;
+esac
+if [[ "$ACTION" == update && $# -ne 0 ]]; then
+  echo "update does not accept agent arguments" >&2; exit 2
+fi
+
+# Environment-only configuration: never execute a project's configuration file.
+SBX_PRESET="${SBX_PRESET:-personal}"
+case "$SBX_PRESET" in
+  personal) preference=true; auth=chatgpt ;;
+  minimal) preference=false; auth=preserve ;;
+  *) echo "SBX_PRESET must be personal or minimal" >&2; exit 2 ;;
+esac
+SBX_RELEASE_MODE="${SBX_RELEASE_MODE:-rolling}"
+case "$SBX_RELEASE_MODE" in
+  rolling|pinned) ;;
+  *) echo "SBX_RELEASE_MODE must be rolling or pinned" >&2; exit 2 ;;
+esac
+SBX_AUTO_UPDATE="${SBX_AUTO_UPDATE:-$preference}"
+SBX_CODEX_AUTH="${SBX_CODEX_AUTH:-$auth}"
+SBX_REMOTE_CONTROL="${SBX_REMOTE_CONTROL:-$preference}"
+SBX_CODEX_SEARCH="${SBX_CODEX_SEARCH:-$preference}"
+SBX_RESET_FAST="${SBX_RESET_FAST:-$preference}"
+SBX_SHARED_SKILLS="${SBX_SHARED_SKILLS:-$preference}"
+SBX_AGENT_DEFAULTS="${SBX_AGENT_DEFAULTS:-$preference}"
+SBX_STATUSLINE="${SBX_STATUSLINE:-$preference}"
+SBX_NODE_TOOLCHAIN="${SBX_NODE_TOOLCHAIN:-$preference}"
+SBX_CLIPBOARD="${SBX_CLIPBOARD:-$preference}"
+SBX_NODE_VERSION="${SBX_NODE_VERSION-26}"
+case "$SBX_CODEX_AUTH" in
+  chatgpt|preserve) ;;
+  *) echo "SBX_CODEX_AUTH must be chatgpt or preserve" >&2; exit 2 ;;
+esac
+for setting in SBX_AUTO_UPDATE SBX_REMOTE_CONTROL SBX_CODEX_SEARCH SBX_RESET_FAST SBX_SHARED_SKILLS SBX_AGENT_DEFAULTS SBX_STATUSLINE SBX_NODE_TOOLCHAIN SBX_CLIPBOARD; do
+  case "${!setting}" in true|false) ;; *) echo "$setting must be true or false" >&2; exit 2 ;; esac
+done
+[[ "$SBX_NODE_VERSION" =~ ^([0-9]+|[0-9]+\.[0-9]+\.[0-9]+)?$ ]] || {
+  echo "SBX_NODE_VERSION must be a major, an exact x.y.z version, or empty" >&2; exit 2;
+}
+TEMPLATE="${SBX_CODEX_TEMPLATE:-docker.io/local/codex-native:latest}"
+[[ "$AGENT" != claude ]] || TEMPLATE="${SBX_CLAUDE_TEMPLATE:-}"
+if [[ "$SBX_RELEASE_MODE" == pinned ]]; then
+  [[ "$TEMPLATE" =~ @sha256:[a-f0-9]{64}$ ]] || {
+    echo "Pinned mode requires SBX_CODEX_TEMPLATE (or SBX_CLAUDE_TEMPLATE) with an image @sha256 digest" >&2; exit 2;
+  }
+  [[ "$ACTION" != update ]] || {
+    echo "Pinned sandboxes are not updated in place. Build a new image and select its digest." >&2; exit 2;
+  }
+  # Use the image's agent, Node and system packages unchanged.
+  SBX_AUTO_UPDATE=false
+  SBX_NODE_TOOLCHAIN=false
+  SBX_CLIPBOARD=false
+fi
+KITS=()
+if [[ "$AGENT" == claude ]]; then
+  [[ "$SBX_AGENT_DEFAULTS" != true ]] || KITS+=(claude-defaults)
+else
+  if [[ "$SBX_CODEX_AUTH" == chatgpt || "$SBX_RESET_FAST" == true ]]; then
+    KITS+=(codex-defaults)
+  fi
+fi
+[[ "$SBX_STATUSLINE" != true ]] || KITS+=("$AGENT-statusline")
+[[ "$SBX_NODE_TOOLCHAIN" != true ]] || KITS+=(node-toolchain)
+
+prepare_shared_skills() {
+  local source_root="$KIT_ROOT/shared-skills/files/home/.agents/skills"
+  local host_root="${HOME:?HOME must be set}/.agents/skills"
+  local source target current
+  local sources=()
+
+  [[ -d "$source_root" ]] || {
+    echo "Shared skill sources not found: $source_root" >&2
+    return 1
+  }
+  mkdir -p "$host_root" || return $?
+  shopt -s nullglob
+  sources=("$source_root"/*)
+  shopt -u nullglob
+  for source in "${sources[@]}"; do
+    [[ -d "$source" && -f "$source/SKILL.md" ]] || continue
+    target="$host_root/${source##*/}"
+    if [[ -L "$target" ]]; then
+      current="$(readlink "$target")" || return $?
+      if [[ "$current" == "$source" ]]; then
+        continue
+      fi
+    fi
+    if [[ -e "$target" || -L "$target" ]]; then
+      echo "⚠ Keeping existing host skill: $target" >&2
+      continue
+    fi
+    ln -s "$source" "$target" || return $?
+  done
+
+  sbx skills import --force
+}
+
+# Canonical absolute path.
+PROJECT_DIR="$(cd "$PWD" && pwd -P)"
+
+# Human-readable project name.
+PROJECT="$(basename "$PROJECT_DIR")"
+PROJECT="$(
+  printf '%s' "$PROJECT" |
+    tr '[:upper:]_' '[:lower:]-' |
+    tr -cd 'a-z0-9.-'
+)"
+PROJECT="${PROJECT:0:32}"
+[[ -n "$PROJECT" ]] || PROJECT="project"
+
+# Do not retain the leading period from hidden-directory names such as .sbx
+# when constructing the sandbox name.
+PROJECT="${PROJECT#.}"
+[[ -n "$PROJECT" ]] || PROJECT="project"
+
+# Distinguish projects with the same basename at different absolute paths.
+HASH="$(printf '%s' "$PROJECT_DIR" | cksum | awk '{print $1}')"
+SANDBOX="${AGENT}-${PROJECT}-${HASH}"
+[[ "$SBX_PRESET" != minimal ]] || SANDBOX+="-minimal"
+if [[ "$SBX_RELEASE_MODE" == pinned ]]; then
+  PIN_HASH="$(printf '%s' "$TEMPLATE" | cksum | awk '{print $1}')"
+  SANDBOX+="-pinned-$PIN_HASH"
+fi
+
+# Create project sandbox if this is the first run.
+SANDBOXES="$(sbx ls -q)" || { echo "Cannot list sandboxes; check sbx and sandboxd." >&2; exit 1; }
+SANDBOX_EXISTS=false
+grep -Fxq "$SANDBOX" <<< "$SANDBOXES" && SANDBOX_EXISTS=true
+if [[ "$SANDBOX_EXISTS" == false && "$ACTION" == update ]]; then
+  echo "Sandbox does not exist: $SANDBOX. Launch it first." >&2
+  exit 1
+fi
+
+# sbx 0.43+ owns the agent skill directory as a shared mount. Refresh its
+# store from the host's standard agent skill directories instead of copying
+# files into the read-only mount through a kit.
+SKILLS_ARGS=(--skills=off)
+if [[ "$SBX_SHARED_SKILLS" == true ]]; then
+  echo "→ Refreshing shared agent skills…"
+  prepare_shared_skills || { echo "Cannot import shared agent skills." >&2; exit 1; }
+  SKILLS_ARGS=(--skills=readonly)
+fi
+
+if [[ "$SANDBOX_EXISTS" == false ]]; then
+  echo "→ Creating $AGENT sandbox: $SANDBOX"
+
+  KIT_ARGS=()
+  for KIT in "${KITS[@]}"; do
+    KIT_PATH="$KIT_ROOT/$KIT"
+    if [[ ! -d "$KIT_PATH" ]]; then
+      echo "Kit not found: $KIT_PATH" >&2
+      exit 1
+    fi
+    OPTIONS=()
+    case "$KIT" in
+      codex-defaults) OPTIONS=(--kit-arg "codex-defaults.auth=$SBX_CODEX_AUTH" --kit-arg "codex-defaults.reset_fast=$SBX_RESET_FAST") ;;
+      node-toolchain) OPTIONS=(--kit-arg "node-toolchain.version=$SBX_NODE_VERSION") ;;
+    esac
+    sbx kit validate "$KIT_PATH" "${OPTIONS[@]}" || exit $?
+    KIT_ARGS+=(--kit "$KIT_PATH" "${OPTIONS[@]}")
+  done
+
+  TEMPLATE_ARGS=()
+  if [[ -n "$TEMPLATE" ]]; then
+    TEMPLATE_ARGS=(--template "$TEMPLATE")
+  fi
+
+  sbx create \
+    --name "$SANDBOX" \
+    "${SKILLS_ARGS[@]}" \
+    "${TEMPLATE_ARGS[@]}" \
+    "${KIT_ARGS[@]}" \
+    "$AGENT" \
+    "$PROJECT_DIR" || exit $?
+
+fi
+
+# exec starts stopped sandboxes. The current-boot check rejects stale logs.
+echo "→ Waiting for sandbox startup kits…"
+READINESS="$SBX_CONFIG_ROOT/lib/wait-startup.py"
+[[ -f "$READINESS" ]] || { echo "Readiness helper missing: $READINESS" >&2; exit 1; }
+sbx exec "$SANDBOX" python3 -c "$(cat "$READINESS")"
+READINESS_STATUS=$?
+STALE_STARTUP_STATUS=75
+if [[ $READINESS_STATUS -eq $STALE_STARTUP_STATUS ]]; then
+  # sandboxd can lose its per-container startup callback across a daemon or
+  # host restart. Replay only its already-registered, root-owned dispatcher,
+  # then require a fresh successful record as usual.
+  echo "→ Replaying sandbox startup kits after daemon restart…"
+  sbx exec -u root "$SANDBOX" /etc/durable-startup.d/run.sh || exit $?
+  sbx exec "$SANDBOX" python3 -c "$(cat "$READINESS")" || exit $?
+elif [[ $READINESS_STATUS -ne 0 ]]; then
+  exit "$READINESS_STATUS"
+fi
+
+# Update only when selected, or explicitly requested.
+if [[ "$SBX_AUTO_UPDATE" == true || "$ACTION" == update ]]; then
+case "$AGENT" in
+claude)
+  BEFORE="$(
+    sbx exec "$SANDBOX" claude --version 2>/dev/null |
+      awk '{print $1}' |
+      tail -1
+  )"
+  echo "→ Checking Claude Code updates (${BEFORE:-unknown})…"
+  if sbx exec "$SANDBOX" claude update; then
+    AFTER="$(
+      sbx exec "$SANDBOX" claude --version 2>/dev/null |
+        awk '{print $1}' |
+        tail -1
+    )"
+    if [[ -n "$BEFORE" && -n "$AFTER" && "$BEFORE" != "$AFTER" ]]; then
+      echo "✓ Claude Code updated: $BEFORE → $AFTER"
+    else
+      echo "✓ Claude Code is current (${AFTER:-$BEFORE})"
+    fi
+  else
+    [[ "$ACTION" != update ]] || exit 1
+    echo "⚠ Claude update check failed; starting existing version."
+  fi
+  ;;
+codex)
+  echo "→ Checking native Codex updates…"
+  if sbx exec "$SANDBOX" sh -c '
+    if ! command -v update-codex-native >/dev/null 2>&1; then
+      echo "This sandbox predates the native image. Build/load Dockerfile.codex and recreate it to use native Codex, Docker and Playwright." >&2
+      exit 1
+    fi
+    exec update-codex-native
+  '; then
+    echo "✓ Native Codex is current"
+  else
+    [[ "$ACTION" != update ]] || exit 1
+    echo "⚠ Native Codex update unavailable; starting existing version."
+  fi
+  ;;
+esac
+
+fi
+[[ "$ACTION" != update ]] || exit 0
+
+# Launch. Herdr on the host sees sbx, not the agent inside the sandbox.
+# Set its hint only now so setup/update commands are not tagged as agents.
+RUN_ARGS=(--name "$SANDBOX")
+
+setup_codex_clipboard() {
+  local source_root="$KIT_ROOT/codex-clipboard/files/home/.local/share/sbx/codex-clipboard"
+  local file
+  for file in bridge.py setup.sh; do
+    if [[ ! -s "$source_root/$file" ]]; then
+      echo "Clipboard source missing on host: $source_root/$file" >&2
+      return 1
+    fi
+  done
+
+  # Read only from this shared checkout on the host. The paths below are
+  # destinations INSIDE the target sandbox, reached exclusively via sbx exec.
+  # Passing contents as arguments also works when this checkout is not mounted
+  # in that project's sandbox.
+  sbx exec "$SANDBOX" python3 -c '
+import sys
+from pathlib import Path
+root = Path.home() / ".local/share/sbx/codex-clipboard"
+root.mkdir(parents=True, exist_ok=True)
+for name, source in zip(("bridge.py", "setup.sh"), sys.argv[1:]):
+    path = root / name
+    if not path.exists() or path.read_text() != source:
+        path.write_text(source)
+' "$(cat "$source_root/bridge.py")" "$(cat "$source_root/setup.sh")" || return $?
+  sbx exec "$SANDBOX" bash /home/agent/.local/share/sbx/codex-clipboard/setup.sh
+}
+
+if [[ "$AGENT" == codex ]]; then
+  if [[ "$SBX_CODEX_AUTH" == chatgpt ]]; then
+    echo "→ Configuring Codex ChatGPT authentication…"
+    AUTH_SETUP="$KIT_ROOT/codex-defaults/files/home/.local/share/sbx/codex-defaults/auth.py"
+    [[ -f "$AUTH_SETUP" ]] || { echo "Codex auth setup missing: $AUTH_SETUP" >&2; exit 1; }
+    sbx exec "$SANDBOX" python3 -c "$(cat "$AUTH_SETUP")" || exit $?
+  fi
+  if [[ "$SBX_RESET_FAST" == true ]]; then
+    RESET_SETUP="$KIT_ROOT/codex-defaults/files/home/.local/share/sbx/codex-defaults/reset-fast.py"
+    [[ -f "$RESET_SETUP" ]] || { echo "Fast reset helper missing: $RESET_SETUP" >&2; exit 1; }
+    sbx exec "$SANDBOX" python3 -c "$(cat "$RESET_SETUP")" || exit $?
+  fi
+  if [[ "$SBX_REMOTE_CONTROL" == true ]]; then
+    # Start is safe to repeat; avoid restarting a daemon with active sessions.
+    LOGIN_STATUS="$(sbx exec "$SANDBOX" codex login status 2>&1)"
+    if [[ $? -eq 0 && "$LOGIN_STATUS" == *"Logged in using ChatGPT"* ]]; then
+      echo "→ Starting Codex remote control…"
+      if ! sbx exec "$SANDBOX" codex remote-control start; then
+        echo "⚠ Remote control could not start; continuing with local Codex. Check login, MFA and network access." >&2
+      fi
+    else
+      echo "→ Remote control needs ChatGPT login. Run on the host:"
+      echo "  sbx exec $SANDBOX codex login --device-auth"
+      echo "  Then relaunch sbx-agent codex."
+    fi
+  fi
+  if [[ "$SBX_CLIPBOARD" == true ]]; then
+    echo "→ Preparing Codex image paste…"
+    if setup_codex_clipboard; then
+      RUN_ARGS+=(--env DISPLAY=:0)
+    else
+      echo "⚠ Clipboard setup failed; starting Codex without the image-paste adapter." >&2
+    fi
+  fi
+fi
+
+echo "→ Starting $AGENT in $SANDBOX"
+echo
+export HERDR_AGENT="$AGENT"
+AGENT_ARGS=()
+if [[ "$AGENT" == codex ]]; then
+  # Keep the login/provider choice even if sbx run regenerates its config.
+  if [[ "$SBX_CODEX_SEARCH" == true ]]; then
+    AGENT_ARGS+=(--search --enable standalone_web_search -c suppress_unstable_features_warning=true)
+  fi
+  if [[ "$SBX_CODEX_AUTH" == chatgpt ]]; then
+    AGENT_ARGS+=(-c forced_login_method=chatgpt -c model_provider=openai)
+  fi
+fi
+if ((${#AGENT_ARGS[@]} + $# > 0)); then
+  exec sbx run "${RUN_ARGS[@]}" -- "${AGENT_ARGS[@]}" "$@"
+else
+  exec sbx run "${RUN_ARGS[@]}"
+fi

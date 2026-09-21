@@ -1,0 +1,32 @@
+schemaVersion: "2"
+kind: mixin
+name: codex-defaults
+version: "0.3.0"
+displayName: Codex defaults
+description: Configurable authentication and Fast-mode reset on container startup.
+sourceURL: https://github.com/Heisaa/dotfiles
+requires:
+  agent: codex
+args:
+  auth:
+    default: chatgpt
+    enum: [chatgpt, preserve]
+  reset_fast:
+    default: "true"
+    enum: ["true", "false"]
+setup:
+  startup:
+    - description: Apply selected Codex defaults
+      user: "1000"
+      command:
+        - bash
+        - -c
+        - |
+          set -euo pipefail
+          root=/home/agent/.local/share/sbx/codex-defaults
+          for _ in $(seq 100); do
+            [ -f "$root/auth.py" ] && [ -f "$root/reset-fast.py" ] && break
+            sleep 0.1
+          done
+          if [ '${{ kit.args.auth }}' = chatgpt ]; then python3 "$root/auth.py"; fi
+          if [ '${{ kit.args.reset_fast }}' = true ]; then python3 "$root/reset-fast.py"; fi

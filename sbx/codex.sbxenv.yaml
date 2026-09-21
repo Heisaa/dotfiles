@@ -1,0 +1,10 @@
+# Export SBX_ROOT as the absolute checkout directory before sbx env.
+schemaVersion: "1"
+agent: codex
+skills: readonly
+sandboxOptions:
+  template: docker.io/local/codex-native:latest
+kits:
+  - ${SBX_ROOT}/kits/codex-defaults
+  - ${SBX_ROOT}/kits/codex-statusline
+  - ${SBX_ROOT}/kits/node-toolchain

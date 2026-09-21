@@ -124,7 +124,7 @@ alias lappy='ssh lappy@192.168.1.204 -i ~/.ssh/office-cluster'
 alias black='ssh black-buddog@192.168.1.203 -i ~/.ssh/office-cluster'
 alias white='ssh white-buddog@192.168.1.202 -i ~/.ssh/office-cluster'
 alias k=kubectl
-alias main='zellij a -c main'
+alias kn=kubens
 
 claude() {
   ~/.local/bin/sbx-agent claude "$@"
@@ -146,3 +146,8 @@ export npm_config_prefix="$HOME/.local"
 
 source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# >>> herdr-tab-rename >>>
+if test -r '/home/hsa/Projects/herdr-tab-rename/shell/hook.zsh'; then
+    source '/home/hsa/Projects/herdr-tab-rename/shell/hook.zsh'
+fi
+# <<< herdr-tab-rename <<<

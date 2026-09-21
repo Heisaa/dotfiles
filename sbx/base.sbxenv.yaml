@@ -1,0 +1,11 @@
+# Export SBX_ROOT as the absolute checkout directory before sbx env.
+schemaVersion: "1"
+agent: claude
+skills: readonly
+# Kit references, not names: sbx has no kit registry, so each entry is a
+# directory / ZIP / OCI reference. Absolute so resolution does not depend on
+# which directory sbx was invoked from.
+kits:
+  - ${SBX_ROOT}/kits/claude-defaults
+  - ${SBX_ROOT}/kits/claude-statusline
+  - ${SBX_ROOT}/kits/node-toolchain

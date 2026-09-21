@@ -4,16 +4,19 @@
 # and brightness keybinds, and on keyboard layout changes. Output is pango markup; the bar sets pango_markup enabled.
 
 battery_dir=/sys/class/power_supply/BAT0
-layout_cache=${XDG_RUNTIME_DIR:-/tmp}/sway-status-layout
+layout_cache=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/sway-status-layout.XXXXXX") || exit 1
 
 # Keeps $layout_cache current and pokes the main loop on every layout change.
 watch_layout() {
     local main=$1 name
-    swaymsg -t get_inputs |
+    # The keybind's pkill also matches this subshell and its pipeline. Ignore
+    # refresh signals here so a volume/brightness key cannot kill the watcher.
+    trap '' USR1
+    swaymsg -r -t get_inputs |
         jq -r 'map(select(has("xkb_active_layout_name")))[0].xkb_active_layout_name' > "$layout_cache"
     kill -USR1 "$main"
-    swaymsg -t subscribe -m '["input"]' |
-        jq --unbuffered -r '.input.xkb_active_layout_name // empty' |
+    swaymsg -r -t subscribe -m '["input"]' |
+        jq --unbuffered -r 'select(.change == "xkb_layout") | .input.xkb_active_layout_name // empty' |
         while IFS= read -r name; do
             printf '%s\n' "$name" > "$layout_cache"
             kill -USR1 "$main"
@@ -70,18 +73,38 @@ render() {
 }
 
 cleanup() {
+    # A timer subshell can receive TERM before it has exec'd sleep.
+    [[ $BASHPID == $$ ]] || exit
+    trap - EXIT INT TERM HUP
+    [[ -n ${timer:-} ]] && kill "$timer" 2>/dev/null
     pkill -P "$watcher" 2>/dev/null
     kill "$watcher" 2>/dev/null
+    rm -f "$layout_cache"
     exit
 }
 
-trap true USR1
+request_refresh() {
+    refresh_requested=1
+    # Cancel the timer even if the signal arrives just before wait starts.
+    [[ -n ${timer:-} ]] && kill "$timer" 2>/dev/null
+    return 0
+}
+
+trap request_refresh USR1
 watch_layout $$ &
 watcher=$!
 trap cleanup EXIT INT TERM HUP
 
 while true; do
+    refresh_requested=0
     render
+    # Preserve refreshes received while render was collecting status fields.
+    (( refresh_requested )) && continue
     # The clock is the only field needing a timer, so wake on its next change.
-    sleep $(( 60 - 10#$(date +%S) )) & wait $!; kill $! 2>/dev/null
+    sleep $(( 60 - 10#$(date +%S) )) &
+    timer=$!
+    (( refresh_requested )) || wait "$timer"
+    kill "$timer" 2>/dev/null
+    wait "$timer" 2>/dev/null
+    timer=
 done

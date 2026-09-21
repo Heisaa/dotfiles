@@ -1,0 +1,23 @@
+schemaVersion: "2"
+kind: mixin
+name: codex-clipboard
+version: "0.1.0"
+displayName: Codex clipboard
+description: Connects Codex's native X11 image paste to the sbx host clipboard bridge.
+sourceURL: https://github.com/Heisaa/dotfiles
+
+requires:
+  agent: codex
+
+setup:
+  startup:
+    - description: Install and start the native clipboard adapter
+      user: "0"
+      command:
+        - bash
+        - -c
+        - |
+          s=/home/agent/.local/share/sbx/codex-clipboard/setup.sh
+          for _ in $(seq 100); do [ -f "$s" ] && break; sleep 0.1; done
+          [ -f "$s" ] || { echo "codex-clipboard: $s missing" >&2; exit 1; }
+          exec bash "$s"

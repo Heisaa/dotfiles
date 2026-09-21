@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1
+ARG BASE_IMAGE=docker.io/docker/sandbox-templates:codex-docker
+FROM ${BASE_IMAGE}
+
+ARG BASE_IMAGE
+ARG RELEASE_MODE=rolling
+ARG CODEX_RELEASE=latest
+USER root
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Pinned builds must name both the base content and the native agent release.
+RUN case "$RELEASE_MODE" in \
+      rolling) ;; \
+      pinned) [[ "$BASE_IMAGE" =~ @sha256:[a-f0-9]{64}$ ]] \
+        && [[ "$CODEX_RELEASE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ;; \
+      *) false ;; \
+    esac
+
+# Keep the base image's Docker Engine, startup label, entrypoint and tools.
+# Remove the npm shim so it cannot take precedence over the native install.
+RUN npm uninstall -g @openai/codex
+COPY --chmod=755 codex-image/update-codex-native /usr/local/bin/update-codex-native
+
+ARG PLAYWRIGHT_VERSION=1.63.0
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
+ENV NODE_PATH=/opt/playwright/node_modules
+RUN npm install --prefix /opt/playwright --no-audit --no-fund "@playwright/test@${PLAYWRIGHT_VERSION}" \
+    && /opt/playwright/node_modules/.bin/playwright install --with-deps chromium \
+    && ln -s /opt/playwright/node_modules/.bin/playwright /usr/local/bin/playwright \
+    && chmod -R a+rX /opt/playwright /opt/playwright-browsers \
+    && rm -rf /var/lib/apt/lists/*
+COPY --chmod=755 codex-image/chromium /usr/local/bin/chromium
+
+# Native releases and updater state must belong to the sandbox user.
+USER agent
+RUN CODEX_RELEASE="${CODEX_RELEASE}" update-codex-native \
+    && codex --version \
+    && docker --version \
+    && playwright --version \
+    && chromium --version
