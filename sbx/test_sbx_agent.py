@@ -100,6 +100,8 @@ class LauncherTest(unittest.TestCase):
     def launch(self, launcher=ROOT / "sbx-agent", agent="codex"):
         checksum = subprocess.check_output(["cksum"], input=str(self.project).encode()).split()[0].decode()
         self.env["SBX_TEST_NAME"] = f"{agent}-work-{checksum}"
+        if (self.project / '.git').is_file():
+            self.env['SBX_TEST_NAME'] += '-wt'
         if self.env.get('SBX_PRESET') == 'minimal':
             self.env['SBX_TEST_NAME'] += '-minimal'
         if self.env.get('SBX_RELEASE_MODE') == 'pinned':
@@ -160,6 +162,25 @@ class LauncherTest(unittest.TestCase):
             self.assertTrue((host_skills / name).is_symlink())
             self.assertEqual((host_skills / name).resolve(),
                              ROOT / 'kits/shared-skills/files/home/.agents/skills' / name)
+
+    def test_linked_worktree_mounts_its_common_git_directory(self):
+        main = self.root / 'main'
+        subprocess.run(['git', 'init', str(main)], check=True, capture_output=True)
+        (main / 'README').write_text('test\n')
+        subprocess.run(['git', '-C', str(main), 'add', 'README'], check=True)
+        subprocess.run(['git', '-C', str(main), '-c', 'user.name=test',
+                        '-c', 'user.email=test@example.invalid', 'commit', '-m', 'initial'],
+                       check=True, capture_output=True)
+        self.project.rmdir()
+        subprocess.run(['git', '-C', str(main), 'worktree', 'add', '-b', 'feature/test',
+                        str(self.project)], check=True, capture_output=True)
+        self.env['SBX_TEST_EXISTING'] = 'no'
+
+        result, _ = self.launch()
+        create = next(c for c in self.calls() if c[0] == 'create')
+        self.assertEqual(create[-2:], [str(self.project), str(main / '.git')])
+        self.assertIn('-wt', self.env['SBX_TEST_NAME'])
+        self.assertIn('Mounting shared Git directory', result.stdout)
 
     def test_failed_skills_import_does_not_create_or_launch(self):
         self.env['SBX_TEST_EXISTING'] = 'no'

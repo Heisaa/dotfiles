@@ -52,6 +52,16 @@ login command printed by the launcher, then relaunch. See the
 [Codex authentication and remote-control notes](docs/kits.md#codex-defaults)
 for pairing and troubleshooting.
 
+### Git worktrees
+
+`sbx-agent` supports linked Git worktrees. When the workspace has a `.git`
+pointer file, the launcher additionally mounts the worktree's shared Git
+directory, allowing the agent to use history, status, branches, and commits.
+The first launch uses a sandbox name ending in `-wt`, so it does not reuse an
+older sandbox that was created without that mount. After confirming the new
+sandbox works, remove the old sandbox with `sbx rm <old-sandbox-name>` if you
+no longer need its sandbox-only files.
+
 ## Everyday use
 
 The default `personal` preset enables automatic agent updates, shared skills,

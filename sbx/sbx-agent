@@ -121,6 +121,21 @@ prepare_shared_skills() {
 # Canonical absolute path.
 PROJECT_DIR="$(cd "$PWD" && pwd -P)"
 
+# A linked Git worktree has a .git *file* whose gitdir points into the main
+# checkout's .git directory. sbx only mounts the selected worktree by default,
+# so that pointer cannot be followed in the sandbox. Mount the common Git
+# directory as an additional workspace at its original absolute path. It must
+# be writable: Git updates refs, indexes, and worktree metadata there.
+GIT_WORKSPACE_ARGS=()
+GIT_WORKTREE=false
+if [[ -f "$PROJECT_DIR/.git" ]] && command -v git >/dev/null 2>&1; then
+  GIT_COMMON_DIR="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || GIT_COMMON_DIR=""
+  if [[ -n "$GIT_COMMON_DIR" && -d "$GIT_COMMON_DIR" ]]; then
+    GIT_WORKTREE=true
+    GIT_WORKSPACE_ARGS=("$GIT_COMMON_DIR")
+  fi
+fi
+
 # Human-readable project name.
 PROJECT="$(basename "$PROJECT_DIR")"
 PROJECT="$(
@@ -139,6 +154,9 @@ PROJECT="${PROJECT#.}"
 # Distinguish projects with the same basename at different absolute paths.
 HASH="$(printf '%s' "$PROJECT_DIR" | cksum | awk '{print $1}')"
 SANDBOX="${AGENT}-${PROJECT}-${HASH}"
+# This creates a fresh, correctly mounted sandbox for worktrees that were
+# launched before the common Git directory was mounted.
+[[ "$GIT_WORKTREE" != true ]] || SANDBOX+="-wt"
 [[ "$SBX_PRESET" != minimal ]] || SANDBOX+="-minimal"
 if [[ "$SBX_RELEASE_MODE" == pinned ]]; then
   PIN_HASH="$(printf '%s' "$TEMPLATE" | cksum | awk '{print $1}')"
@@ -166,6 +184,9 @@ fi
 
 if [[ "$SANDBOX_EXISTS" == false ]]; then
   echo "→ Creating $AGENT sandbox: $SANDBOX"
+  if [[ "$GIT_WORKTREE" == true ]]; then
+    echo "→ Mounting shared Git directory for linked worktree: $GIT_COMMON_DIR"
+  fi
 
   KIT_ARGS=()
   for KIT in "${KITS[@]}"; do
@@ -194,7 +215,8 @@ if [[ "$SANDBOX_EXISTS" == false ]]; then
     "${TEMPLATE_ARGS[@]}" \
     "${KIT_ARGS[@]}" \
     "$AGENT" \
-    "$PROJECT_DIR" || exit $?
+    "$PROJECT_DIR" \
+    "${GIT_WORKSPACE_ARGS[@]}" || exit $?
 
 fi
 
