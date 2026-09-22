@@ -364,8 +364,21 @@ COMMAND=${COMMAND%%[[:space:]]}
 
 if [ -t 1 ]; then
   echo "Launching command: ${COMMAND}" >&3
-  setsid /bin/sh -c "${COMMAND}" >&/dev/null </dev/null &
-  sleep 0.01
+  LAUNCH_LOG="${XDG_STATE_HOME:-$HOME/.local/state}/sway-launcher-desktop/launch.log"
+  mkdir -p "${LAUNCH_LOG%/*}"
+  printf '\n[%s] Launching: %s\n' "$(date -Is)" "$COMMAND" >>"$LAUNCH_LOG"
+
+  # POSIX shell quoting keeps separators inside each argument. Quote backslashes
+  # separately so Sway's $$ escape also works after a literal backslash.
+  SHELL_COMMAND=${COMMAND//\'/\'\"\'\"\'}
+  SHELL_COMMAND=${SHELL_COMMAND//\\/\'\"\\\\\"\'}
+  SHELL_COMMAND=${SHELL_COMMAND//\$/\$\$}
+  SHELL_LOG=${LAUNCH_LOG//\'/\'\"\'\"\'}
+  SHELL_LOG=${SHELL_LOG//\\/\'\"\\\\\"\'}
+  SHELL_LOG=${SHELL_LOG//\$/\$\$}
+  # Wait for Sway to accept the request before closing the launcher terminal.
+  # Sway owns the new process, so terminal shutdown cannot race its startup.
+  swaymsg -- "exec /bin/sh -c '$SHELL_COMMAND' >>'$SHELL_LOG' 2>&1 </dev/null" >>"$LAUNCH_LOG" 2>&1
 else
   echo "${COMMAND}"
 fi
