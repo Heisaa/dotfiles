@@ -4,3 +4,4 @@ kits:
   - ${HOME}/dotfiles/.sbx/kits/codex-defaults
   - ${HOME}/dotfiles/.sbx/kits/codex-statusline
   - ${HOME}/dotfiles/.sbx/kits/node-toolchain
+  - ${HOME}/dotfiles/.sbx/kits/skills

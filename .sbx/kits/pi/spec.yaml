@@ -1,0 +1,151 @@
+schemaVersion: "2"
+kind: sandbox
+name: pi
+version: "0.5.0"
+displayName: Pi
+description: Pi coding agent with interactive provider login.
+sourceURL: https://github.com/earendil-works/pi
+
+sandbox:
+  image: docker/sandbox-templates:shell-docker
+  entrypoint: [pi]
+  command:
+    default: [--print]
+    interactive: []
+
+agentInstructions:
+  filename: AGENTS.md
+
+permissions:
+  network:
+    allow:
+      - registry.npmjs.org
+      - api.anthropic.com
+      - claude.ai
+      - console.anthropic.com
+      - platform.claude.com
+      - api.openai.com
+      - auth.openai.com
+      - chatgpt.com
+      - api.deepinfra.com
+
+setup:
+  install:
+    - description: Install Pi into a stable, agent-writable npm prefix
+      user: "0"
+      command: |
+        set -eu
+        prefix=/usr/local/share/npm-global
+        install -d -o 1000 -g 1000 "$prefix"
+        sudo -u '#1000' -E -H env NPM_CONFIG_PREFIX="$prefix" \
+          npm install -g --ignore-scripts --no-fund --no-audit @earendil-works/pi-coding-agent
+        ln -sfn "$prefix/bin/pi" /usr/local/bin/pi
+    - description: Install default Pi extensions for the agent user
+      user: "1000"
+      command: |
+        set -eu
+        pi install npm:@juicesharp/rpiv-ask-user-question
+        pi install npm:@juicesharp/rpiv-todo
+        pi install npm:pi-goal-x
+        pi install npm:@juicesharp/rpiv-voice
+        pi install npm:pi-background-tasks
+  startup:
+    - description: Link the shared read-only voice model cache
+      user: "1000"
+      command:
+        - node
+        - -e
+        - |
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          // Direct kit users can omit the shared cache and keep local downloads.
+          if (!process.env.SBX_PI_VOICE_CACHE) process.exit(0);
+          const source = path.join(process.env.SBX_PI_VOICE_CACHE, 'whisper-base');
+          for (const name of ['base-encoder.int8.onnx', 'base-decoder.int8.onnx', 'base-tokens.txt', '.download-complete']) {
+            if (!fs.statSync(path.join(source, name)).isFile()) throw new Error('Incomplete shared voice model: ' + source);
+          }
+          const target = path.join(os.homedir(), '.pi', 'models', 'whisper-base');
+          fs.mkdirSync(path.dirname(target), { recursive: true });
+          let current;
+          try { current = fs.lstatSync(target); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+          if (current) {
+            if (current.isSymbolicLink() && fs.readlinkSync(target) === source) process.exit(0);
+            throw new Error('Voice model path already exists; move it aside before enabling the shared cache: ' + target);
+          }
+          fs.symlinkSync(source, target, 'dir');
+    - description: Add DeepInfra to Pi without replacing existing provider configuration
+      user: "1000"
+      command:
+        - node
+        - -e
+        - |
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const dir = process.env.PI_CODING_AGENT_DIR || path.join(os.homedir(), '.pi', 'agent');
+          const file = path.join(dir, 'models.json');
+          const config = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+          config.providers ??= {};
+          const before = JSON.stringify(config);
+          config.providers.deepinfra ??= {
+            baseUrl: 'https://api.deepinfra.com/v1/openai',
+            api: 'openai-completions',
+            apiKey: '$DEEPINFRA_API_KEY',
+            compat: {
+              supportsStore: false,
+              supportsDeveloperRole: false,
+              supportsReasoningEffort: false,
+              maxTokensField: 'max_tokens'
+            },
+            models: []
+          };
+          // Current featured coding models, checked against deepinfra.com/models on 2026-09-13.
+          // DeepInfra does not expose a public usage ranking. Output is capped locally at 32K.
+          const defaults = [
+            {
+              id: 'deepseek-ai/DeepSeek-V4.1-Flash',
+              name: 'DeepSeek V4.1 Flash (DeepInfra)',
+              reasoning: true, input: ['text', 'image'], contextWindow: 1048576,
+              maxTokens: 32768,
+              cost: { input: 0.20, output: 0.60, cacheRead: 0.006, cacheWrite: 0 }
+            },
+            {
+              id: 'zai-org/GLM-5.3',
+              name: 'GLM 5.3 (DeepInfra)',
+              reasoning: true, input: ['text'], contextWindow: 1048576,
+              maxTokens: 32768,
+              cost: { input: 1.20, output: 4.00, cacheRead: 0.12, cacheWrite: 0 }
+            },
+            {
+              id: 'zai-org/GLM-5.3-Flash',
+              name: 'GLM 5.3 Flash (DeepInfra)',
+              reasoning: true, input: ['text', 'image'], contextWindow: 1048576,
+              maxTokens: 32768,
+              cost: { input: 0.075, output: 0.25, cacheRead: 0.015, cacheWrite: 0 }
+            },
+            {
+              id: 'moonshotai/Kimi-K3',
+              name: 'Kimi K3 (DeepInfra)',
+              reasoning: true, input: ['text', 'image'], contextWindow: 1048576,
+              maxTokens: 32768,
+              cost: { input: 2.85, output: 14.25, cacheRead: 0.285, cacheWrite: 0 }
+            },
+            {
+              id: 'Qwen/Qwen3.8-2.4T-A95B',
+              name: 'Qwen 3.8 2.4T A95B (DeepInfra)',
+              reasoning: true, input: ['text'], contextWindow: 262144,
+              maxTokens: 32768,
+              cost: { input: 2.00, output: 6.00, cacheRead: 0.20, cacheWrite: 0 }
+            }
+          ];
+          const provider = config.providers.deepinfra;
+          provider.models = (provider.models ?? []).filter(model => model.id !== 'deepseek-ai/DeepSeek-V3.2');
+          for (const model of defaults) {
+            if (!provider.models.some(existing => existing.id === model.id)) provider.models.push(model);
+          }
+          if (JSON.stringify(config) === before) process.exit(0);
+          fs.mkdirSync(dir, { recursive: true });
+          const temp = file + '.tmp';
+          fs.writeFileSync(temp, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+          fs.renameSync(temp, file);

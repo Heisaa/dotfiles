@@ -1,0 +1,14 @@
+interface:
+  display_name: Write Design Docs
+  short_description: Design docs for agents, presented in readable HTML
+  default_prompt: Use $write-design-doc to draft or review a software design for agent-assisted
+    implementation and deliver a readable HTML file.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

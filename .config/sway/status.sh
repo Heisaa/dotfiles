@@ -8,6 +8,10 @@ layout_cache=${XDG_RUNTIME_DIR:-/tmp}/sway-status-layout
 
 # Keeps $layout_cache current and pokes the main loop on every layout change.
 watch_layout() {
+    # The keybinds' pkill -f also matches this background shell. A caught
+    # USR1 trap is reset in subshells, so explicitly ignore it here; children
+    # inherit the ignored signal. Only the main loop should handle refreshes.
+    trap '' USR1
     local main=$1 name
     swaymsg -t get_inputs |
         jq -r 'map(select(has("xkb_active_layout_name")))[0].xkb_active_layout_name' > "$layout_cache"

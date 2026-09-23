@@ -6,10 +6,11 @@ AGENT="${1:-}"
 shift || true
 
 case "$AGENT" in
-claude) KITS=(claude-defaults claude-statusline node-toolchain) ;;
-codex) KITS=(codex-defaults codex-statusline node-toolchain) ;;
+claude) KITS=(claude-defaults claude-statusline node-toolchain skills) ;;
+codex) KITS=(codex-defaults codex-statusline node-toolchain skills) ;;
+pi) KITS=(pi node-toolchain skills) ;;
 *)
-  echo "usage: sbx-agent {claude|codex} [args...]"
+  echo "usage: sbx-agent {claude|codex|pi} [args...]"
   exit 2
   ;;
 esac
@@ -31,8 +32,19 @@ PROJECT="${PROJECT:0:32}"
 HASH="$(printf '%s' "$PROJECT_DIR" | cksum | awk '{print $1}')"
 SANDBOX="${AGENT}-${PROJECT}-${HASH}"
 
-# Create project sandbox if this is the first run.
-if ! sbx ls -q 2>/dev/null | grep -Fxq "$SANDBOX"; then
+# Do not mistake an unavailable daemon for a missing sandbox, or hide its error.
+echo "→ Checking sandbox availability: $SANDBOX"
+if SANDBOXES="$(sbx ls -q)"; then
+  :
+else
+  STATUS=$?
+  echo "Could not list sandboxes (exit $STATUS). Check sbx daemon status on the host." >&2
+  exit "$STATUS"
+fi
+
+# Create project sandbox if this is the first run. Consume the entire list so
+# an early grep match cannot cause a SIGPIPE under pipefail.
+if ! grep -Fx "$SANDBOX" <<<"$SANDBOXES" >/dev/null; then
   echo "→ Creating $AGENT sandbox: $SANDBOX"
 
   KIT_ARGS=()
@@ -43,14 +55,25 @@ if ! sbx ls -q 2>/dev/null | grep -Fxq "$SANDBOX"; then
       exit 1
     fi
     sbx kit validate "$KIT_PATH" || exit $?
+    # Register custom agents through --kit, then select their spec's name.
+    # A kit path in the agent position requires sbx >= 0.42.
     KIT_ARGS+=(--kit "$KIT_PATH")
   done
+
+  EXTRA_ARGS=()
+  WORKSPACES=("$PROJECT_DIR")
+  if [[ "$AGENT" == pi ]]; then
+    VOICE_CACHE="$(python3 "$KIT_ROOT/pi/prepare-voice-model.py")" || exit $?
+    EXTRA_ARGS+=(--env "SBX_PI_VOICE_CACHE=$VOICE_CACHE")
+    WORKSPACES+=("$VOICE_CACHE:ro")
+  fi
 
   sbx create \
     --name "$SANDBOX" \
     "${KIT_ARGS[@]}" \
+    "${EXTRA_ARGS[@]}" \
     "$AGENT" \
-    "$PROJECT_DIR" || exit $?
+    "${WORKSPACES[@]}" || exit $?
 
   # create returns before startup kits finish. For this newly created
   # container, wait for the latest dispatcher run before updating/launching.
@@ -84,6 +107,15 @@ fi
 
 # Update agent.
 case "$AGENT" in
+pi)
+  echo "→ Checking Pi updates…"
+  if sbx exec "$SANDBOX" sh -lc \
+    'npm install -g --ignore-scripts --no-fund --no-audit --prefix /usr/local/share/npm-global @earendil-works/pi-coding-agent@latest'; then
+    sbx exec "$SANDBOX" pi --version || exit $?
+  else
+    echo "⚠ Pi update failed; starting existing version."
+  fi
+  ;;
 claude)
   BEFORE="$(
     sbx exec "$SANDBOX" claude --version 2>/dev/null |
@@ -135,10 +167,42 @@ codex)
 esac
 
 # Launch.
+# Keep the launcher alive to repair terminal state if the interactive client
+# exits without cleaning up. Leave stdin/stdout attached directly to the TTY.
+TTY_STATE=""
+if [[ -t 0 && -t 1 ]]; then
+  TTY_STATE="$(stty -g)" || TTY_STATE=""
+fi
+finish() {
+  local status=$?
+  if [[ -n "$TTY_STATE" ]]; then
+    stty "$TTY_STATE" || true
+    # Leave alternate screen, reset attributes, show cursor, disable modes
+    # that a crashed TUI can leave active in the parent shell.
+    printf '\033[?1049l\033[0m\033[?25h\033[?2004l\033[?1000l\033[?1002l\033[?1003l\033[?1006l'
+  fi
+  if ((status != 0)); then
+    echo "$AGENT session exited with status $status ($SANDBOX)." >&2
+    echo "If other sbx commands also hang, check the host sandbox daemon." >&2
+  fi
+  trap - EXIT
+  exit "$status"
+}
+trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 echo "→ Starting $AGENT in $SANDBOX"
 echo
-if (($# > 0)); then
-  exec sbx run --name "$SANDBOX" -- "$@"
+if [[ "$AGENT" == pi ]]; then
+  # The custom-agent sbx run path can exit before Pi's harness opens.
+  # Launch directly with stdin and a terminal, as needed for /login.
+  EXEC_FLAGS=(-i)
+  [[ -t 0 && -t 1 ]] && EXEC_FLAGS=(-it)
+  sbx exec "${EXEC_FLAGS[@]}" -w "$PROJECT_DIR" "$SANDBOX" pi "$@"
+elif (($# > 0)); then
+  sbx run --name "$SANDBOX" -- "$@"
 else
-  exec sbx run --name "$SANDBOX"
+  sbx run --name "$SANDBOX"
 fi
+exit $?

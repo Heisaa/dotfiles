@@ -1,14 +1,23 @@
 schemaVersion: "2"
 kind: mixin
 name: node-toolchain
-version: "0.1.0"
+version: "0.2.0"
 displayName: Node toolchain
-description: Installs the Node.js major version and extra packages this workspace expects, replacing the older ones baked into the agent image.
+description: Installs Node.js, Playwright Test, Chromium with headless shell, and extra packages.
 sourceURL: https://github.com/Heisaa/dotfiles
+
+permissions:
+  network:
+    allow:
+      - nodejs.org
+      - registry.npmjs.org
+      - cdn.playwright.dev
+      - playwright.download.prss.microsoft.com
+      - cdn.download.prss.microsoft.com
 
 setup:
   startup:
-    - description: Install Node.js and extra packages declared in packages.conf
+    - description: Install Node.js, browser tooling, and extra packages declared in packages.conf
       user: "0"
       command:
         - bash

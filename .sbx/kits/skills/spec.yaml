@@ -1,0 +1,21 @@
+schemaVersion: "2"
+kind: mixin
+name: skills
+version: "0.1.0"
+displayName: Shared agent skills
+description: Personal skills available to both Codex and Claude Code.
+sourceURL: https://github.com/Heisaa/dotfiles
+
+setup:
+  startup:
+    - description: Link shared skills into Codex and Claude Code discovery directories
+      user: "1000"
+      command:
+        - bash
+        - -c
+        - |
+          set -eu
+          script="$HOME/.local/share/sbx/skills/install.sh"
+          for _ in $(seq 100); do [ -f "$script" ] && break; sleep 0.1; done
+          [ -f "$script" ] || { echo "skills: $script missing" >&2; exit 1; }
+          exec bash "$script"

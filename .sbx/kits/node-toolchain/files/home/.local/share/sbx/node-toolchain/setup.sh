@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bring a fresh sandbox up to the toolchain versions this dotfiles repo expects.
-# Runs once per sandbox creation, as a kit startup step. Everything here is
+# Runs on each sandbox start, as a kit startup step. Everything here is
 # idempotent, so a re-run is cheap and safe.
 #
 # What to install is declared in packages.conf next to this script.
@@ -17,7 +17,7 @@ NPM_PREFIX="${NPM_CONFIG_PREFIX:-/usr/local/share/npm-global}"
 DIST="${NODE_DIST_URL:-https://nodejs.org/dist}"
 
 # Root is needed for /opt, /usr/local/bin and apt. Kit startup steps run as
-# root by default; re-exec through sudo if invoked as the agent user instead.
+# root by explicit configuration; re-exec through sudo if invoked as the agent user instead.
 if [ "$(id -u)" -ne 0 ]; then
   exec sudo -n bash "$0" "$@"
 fi
@@ -111,6 +111,10 @@ if [ -n "${NODE_MAJOR:-}" ]; then
   install_node "$NODE_MAJOR"
 fi
 
+if [ -n "${NPM_GLOBAL_PACKAGES:-}${PLAYWRIGHT_VERSION:-}" ]; then
+  install -d -o "$AGENT_UID" -g "$AGENT_UID" "$NPM_PREFIX"
+fi
+
 if [ -n "${NPM_GLOBAL_PACKAGES:-}" ]; then
   log "npm -g: $NPM_GLOBAL_PACKAGES"
   # Installed as the agent user so the tree stays writable afterwards. -H is
@@ -125,4 +129,27 @@ if [ -n "${NPM_GLOBAL_PACKAGES:-}" ]; then
     PATH="/usr/local/bin:$PATH" \
     NPM_CONFIG_PREFIX="$NPM_PREFIX" \
     npm install -g --no-fund --no-audit ${NPM_GLOBAL_PACKAGES}
+fi
+
+if [ -n "${PLAYWRIGHT_VERSION:-}" ]; then
+  # Keep npm packages outside /opt/node so Node upgrades preserve them.
+  pw="$NPM_PREFIX/lib/node_modules/@playwright/test/cli.js"
+  agent_env=(sudo -u "#$AGENT_UID" -E -H env
+    "PATH=/usr/local/bin:$PATH" "NPM_CONFIG_PREFIX=$NPM_PREFIX")
+  if [ ! -f "$pw" ] || [ "$(node "$pw" --version)" != "Version $PLAYWRIGHT_VERSION" ]; then
+    "${agent_env[@]}" npm install -g --no-fund --no-audit "@playwright/test@$PLAYWRIGHT_VERSION"
+  fi
+  ln -sfn "$NPM_PREFIX/bin/playwright" /usr/local/bin/playwright
+
+  # Dependencies need root; browser downloads must use the agent's HOME so
+  # normal Playwright scripts can find them in ~/.cache/ms-playwright.
+  deps_stamp="/var/lib/sbx-playwright/deps-$PLAYWRIGHT_VERSION"
+  if [ ! -f "$deps_stamp" ]; then
+    apt_wait
+    DEBIAN_FRONTEND=noninteractive node "$pw" install-deps chromium
+    mkdir -p "$(dirname "$deps_stamp")"
+    touch "$deps_stamp"
+  fi
+  "${agent_env[@]}" node "$pw" install chromium
+  log "Playwright $PLAYWRIGHT_VERSION and Chromium ready"
 fi

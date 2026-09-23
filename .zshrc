@@ -134,6 +134,10 @@ codex() {
   ~/.local/bin/sbx-agent codex "$@"
 }
 
+pi() {
+  ~/.local/bin/sbx-agent pi "$@"
+}
+
 # Added to path
 typeset -U path PATH
 

@@ -7,3 +7,4 @@ kits:
   - ${HOME}/dotfiles/.sbx/kits/claude-defaults
   - ${HOME}/dotfiles/.sbx/kits/claude-statusline
   - ${HOME}/dotfiles/.sbx/kits/node-toolchain
+  - ${HOME}/dotfiles/.sbx/kits/skills

@@ -1,0 +1,16 @@
+schemaVersion: "1"
+agent: pi
+env:
+  SBX_PI_VOICE_CACHE: ${HOME}/.cache/sbx/pi-voice
+additionalWorkspaces:
+  - path: ${HOME}/.cache/sbx/pi-voice
+    readOnly: true
+lifecycle:
+  initialize:
+    - name: Prepare shared Pi voice model
+      command: python3 "$HOME/dotfiles/.sbx/kits/pi/prepare-voice-model.py"
+      timeout: 15m
+kits:
+  - ${HOME}/dotfiles/.sbx/kits/pi
+  - ${HOME}/dotfiles/.sbx/kits/node-toolchain
+  - ${HOME}/dotfiles/.sbx/kits/skills

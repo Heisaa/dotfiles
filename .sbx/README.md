@@ -6,13 +6,16 @@ Shared configuration for Docker Sandboxes (`sbx`).
 .sbx/
 ├── base.sbxenv.yaml           # Claude defaults merged into every project's .sbxenv.yaml
 ├── codex.sbxenv.yaml          # same, for Codex sandboxes
+├── pi.sbxenv.yaml             # same, for Pi sandboxes
 ├── sbx-agent                  # launcher: picks kits by agent, creates/updates/runs
 └── kits/
     ├── claude-defaults/       # mixin kit: default Claude Code settings + global CLAUDE.md
     ├── claude-statusline/     # mixin kit: Claude Code status line
     ├── codex-defaults/        # mixin kit: never start Codex in Fast mode
     ├── codex-statusline/      # mixin kit: Codex status line
-    └── node-toolchain/        # mixin kit: Node.js + extra packages
+    ├── pi/                   # sandbox kit: Pi on shell-docker
+    ├── node-toolchain/        # mixin kit: Node.js, Playwright + Chromium
+    └── skills/               # mixin kit: shared Codex, Claude Code, and Pi skills
 ```
 
 ## There is no global sbx config file
@@ -47,16 +50,34 @@ answer should not depend on where you happened to run `sbx` from.
 
 The executable [`sbx-agent`](sbx-agent) launcher selects kits by agent:
 
-- `sbx-agent claude`: `claude-defaults`, `claude-statusline`, `node-toolchain`.
-- `sbx-agent codex`: `codex-defaults`, `codex-statusline`, `node-toolchain`.
+- `sbx-agent claude`: `claude-defaults`, `claude-statusline`, `node-toolchain`, `skills`.
+- `sbx-agent codex`: `codex-defaults`, `codex-statusline`, `node-toolchain`, `skills`.
+- `sbx-agent pi`: the `pi` sandbox kit, `node-toolchain`, `skills`.
 
-Run `~/dotfiles/.sbx/sbx-agent claude` or `~/dotfiles/.sbx/sbx-agent codex`
+Run `~/dotfiles/.sbx/sbx-agent claude`, `~/dotfiles/.sbx/sbx-agent codex`,
+or `~/dotfiles/.sbx/sbx-agent pi`
 from the project directory, or put the launcher on your `PATH`. Additional
-arguments are forwarded to `sbx run`. Kits are validated before creation;
+arguments are forwarded to the agent. Pi launches directly with `sbx exec -it`
+in the project directory, allowing interactive `/login`; when input or output
+is redirected, it uses `-i` without allocating a terminal. Claude and Codex use
+`sbx run`. Kits are validated before creation;
 after creation, the launcher waits up to ten minutes for the startup dispatcher
 to complete before updating or launching the agent. A kit failure or timeout
 stops the launcher and prints the startup log. Existing containers are reused
 without applying new kits.
+
+The launcher prints a sandbox availability check before contacting the daemon
+and stops if listing sandboxes fails. After the agent session returns, it restores the
+terminal settings and main screen and reports a nonzero exit status. This helps
+when an agent crashes while using raw input or the alternate screen; it cannot
+recover output an application has already cleared or repair a stuck host daemon.
+
+If your shell function calls `~/.local/bin/sbx-agent`, keep that path linked to
+this launcher so edits take effect (check with `ls -l ~/.local/bin/sbx-agent`).
+If commands also hang in a fresh host terminal, Docker recommends
+`sbx daemon restart`, which preserves sandbox data, followed by `sbx diagnose`
+if the problem persists. See the
+[daemon troubleshooting guide](https://docs.docker.com/ai/sandboxes/troubleshooting/#restart-the-sandbox-daemon).
 
 Start a sandbox with the shared defaults:
 
@@ -107,22 +128,49 @@ Check a kit before relying on it:
 sbx kit validate ~/dotfiles/.sbx/kits/node-toolchain
 ```
 
-## Machine-wide network rules
+## Shared skills
 
-Not expressible in a kit. Apply once per machine:
+The agent-agnostic `skills` kit is included in all three base environment files and
+all launcher modes. It contains `write-design-doc`, extracted with all supporting
+files from `write-design-doc.zip`.
+
+Keep skill folders under `kits/skills/files/home/.local/share/sbx/skills/`.
+The startup installer links each folder containing `SKILL.md` into both
+`~/.agents/skills/` (Codex) and `~/.claude/skills/` (Claude Code). Both links
+point to the same sandbox copy. Pi also discovers `~/.agents/skills/`. Repeated startup is safe; an existing unrelated
+skill with the same directory name causes an error instead of being overwritten.
+
+Invoke it with `$write-design-doc` in Codex, `/write-design-doc` in Claude Code,
+or `/skill:write-design-doc` in Pi.
+The personal discovery locations and symlinks are supported by the
+[Codex documentation](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)
+and [Claude Code documentation](https://code.claude.com/docs/en/skills#choose-where-skills-load).
+
+Kit files are snapshots taken at creation, so recreate existing sandboxes to
+receive this kit or later skill edits. The launcher reuses existing sandboxes
+without adding kits. To validate the kit on the host:
 
 ```sh
-sbx policy allow network nodejs.org,registry.npmjs.org,pypi.org
+sbx kit validate ~/dotfiles/.sbx/kits/skills
+```
+
+## Machine-wide network rules
+
+The Node toolchain kit declares download hosts in `permissions.network.allow`.
+For sandboxes outside these defaults, equivalent machine-wide rules can be
+applied once on the host:
+
+```sh
+sbx policy allow network nodejs.org,registry.npmjs.org,pypi.org,cdn.playwright.dev,playwright.download.prss.microsoft.com,cdn.download.prss.microsoft.com
 sbx policy ls
 ```
 
-`nodejs.org` is what the `node-toolchain` kit downloads from; without it every
-sandbox creation fails the Node step with a 403.
+Explicit local or organization deny rules still take precedence. Apt repositories
+need network access too; use `sbx policy log` to diagnose blocked downloads.
 
 ## node-toolchain
 
-`kind: mixin`, agent-agnostic — works in a `codex` sandbox as well as a
-`claude` one. It exists so a fresh sandbox arrives with the toolchain this
+`kind: mixin`, agent-agnostic — used by Claude, Codex, and Pi sandboxes. It exists so a fresh sandbox arrives with the toolchain this
 workspace expects instead of the older one baked into the agent image, without
 anyone having to ask the agent to upgrade it by hand.
 
@@ -134,11 +182,14 @@ Everything it installs is declared in one file,
 | `NODE_MAJOR` | Node major to install from nodejs.org. Empty skips Node entirely. |
 | `APT_PACKAGES` | Extra apt packages, space separated. |
 | `NPM_GLOBAL_PACKAGES` | `npm install -g` list; versions may be pinned (`typescript@5.9.2`). |
+| `PLAYWRIGHT_VERSION` | Pinned Playwright Test version, with matching Chromium and headless shell. Empty disables browser installation. |
 
 Currently `NODE_MAJOR=26` — the base image ships the distro's Node 22.
 
-Cold run takes about 9 seconds; a re-run is a no-op in well under a second, so
-the step is safe to leave enabled on every sandbox.
+The first run downloads Chromium and installs its system libraries, so allow
+several minutes. Subsequent starts reuse the pinned Playwright package, browser
+cache, and a versioned system-dependency marker. Node still checks its latest
+patch version online.
 
 The startup step declares `user: "0"` so it runs as root. This is required:
 `sbx create` shows a step without `user:` as `user=1000`, i.e. the agent user,
@@ -330,3 +381,170 @@ Claude Code does not surface them as a percentage anywhere a script can read.
 - Written in Node, not `jq`/bash, because Node is guaranteed present in a
   Claude Code sandbox and `jq` is not — this keeps the kit free of an install
   step and of any network access.
+
+## Pi
+
+From your project directory:
+
+```sh
+~/dotfiles/.sbx/sbx-agent pi
+# Agent arguments are forwarded, for example:
+~/dotfiles/.sbx/sbx-agent pi --provider anthropic
+```
+
+Pi is a custom `kind: sandbox` kit based on `docker/sandbox-templates:shell-docker`.
+The launcher supplies `--kit /absolute/path/to/kits/pi` and selects the agent
+by its spec name, `pi`. This supports sbx releases before 0.42, which reject a
+kit path in the agent position with `unknown agent`. The path-as-agent syntax
+was added in [sbx 0.42](https://github.com/docker/sbx-releases/releases/tag/v0.42.0);
+the older form is retained here for compatibility. Pi is installed
+at creation and checked for npm updates before each launch, under a stable,
+agent-writable npm prefix that survives Node upgrades.
+
+New Pi sandboxes install these extensions as the agent user during creation:
+
+- `npm:@juicesharp/rpiv-ask-user-question`
+- `npm:@juicesharp/rpiv-todo`
+- `npm:pi-goal-x`
+- `npm:@juicesharp/rpiv-voice`
+- `npm:pi-background-tasks`
+
+The kit runs `pi install` for each package, which registers it in the agent's
+user settings. Versions are unpinned, so creation installs the latest releases.
+Use `pi list` to inspect installed packages and `pi update --extensions` to
+update them. Recreate existing sandboxes to apply this kit change, or run the
+five `pi install` commands from `kits/pi/spec.yaml` inside an existing sandbox.
+
+Pi voice models are shared across sandboxes created through `sbx-agent pi` or
+`pi.sbxenv.yaml`. Before creation, the host downloads Whisper once into
+`~/.cache/sbx/pi-voice/whisper-base/`. Each sandbox mounts the cache read-only
+and links `~/.pi/models/whisper-base` to it. The cache survives sandbox removal;
+each running recognizer still uses its own RAM.
+
+The host needs Python 3 and curl. A file lock serializes simultaneous launches;
+downloads are staged and only published after all three required files are
+extracted. Subsequent launches reuse the completed cache without downloading.
+Only the int8 encoder, int8 decoder, tokens, and `.download-complete` marker
+are kept (about 157 MB). To prepare the cache separately:
+
+```sh
+python3 ~/dotfiles/.sbx/kits/pi/prepare-voice-model.py
+```
+
+Existing sandboxes must be recreated to acquire the additional mount. A plain
+`sbx create --kit … pi .` does not configure sharing: also pass
+`--env "SBX_PI_VOICE_CACHE=$HOME/.cache/sbx/pi-voice"` before `pi` and
+`"$HOME/.cache/sbx/pi-voice:ro"` after the project path, with the cache prepared
+first. Without that environment variable, the kit leaves voice model storage
+local. A conflicting local model directory is preserved and reported rather
+than overwritten. Microphone access from the sandbox remains unverified;
+sharing model files does not forward the host microphone.
+
+This uses Docker's [additional workspace mounts](https://docs.docker.com/ai/sandboxes/usage/#multiple-workspaces)
+and the extension's [fixed model path and completion marker](https://github.com/juicesharp/rpiv-mono/blob/main/packages/rpiv-voice/docs/model.md).
+
+The current official package is `@earendil-works/pi-coding-agent`; see the
+[Pi quick start](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md#quick-start).
+Run `/login` inside Pi to authenticate with your provider, then `/model` to
+select a model. Authentication is sandbox-local; host Pi credentials are not
+copied. The kit allows common Anthropic and OpenAI API/login hosts and the DeepInfra API. Other
+providers may need additional network rules, visible in `sbx policy log`.
+
+DeepInfra is registered on startup in `~/.pi/agent/models.json`, with
+five current featured coding models from the [DeepInfra catalog](https://deepinfra.com/models)
+(checked September 13, 2026):
+
+- `deepseek-ai/DeepSeek-V4.1-Flash`
+- `zai-org/GLM-5.3`
+- `zai-org/GLM-5.3-Flash`
+- `moonshotai/Kimi-K3`
+- `Qwen/Qwen3.8-2.4T-A95B`
+
+These are featured models; no public usage ranking was available to verify
+which models are most used. Startup removes the previous DeepSeek V3.2 entry
+and adds missing models from this list. Existing provider settings, custom
+models, and overrides for these model IDs are preserved. The configuration uses DeepInfra's
+[OpenAI-compatible API](https://docs.deepinfra.com/quickstart) and Pi's
+[custom provider format](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models.md).
+Inside Pi, run `/login`, select `deepinfra`, and enter your DeepInfra API key;
+then select the model with `/model`. Alternatively, set `DEEPINFRA_API_KEY`
+in the sandbox environment before launching Pi. Host environment variables
+are not automatically forwarded by the launcher.
+
+```sh
+~/dotfiles/.sbx/sbx-agent pi --provider deepinfra --model deepseek-ai/DeepSeek-V4.1-Flash
+```
+
+Add more model entries in the sandbox's `~/.pi/agent/models.json` as needed.
+Listed prices are a snapshot of standard-tier rates, including the current
+GLM Flash discount; refresh them in `models.json` when rates change. Explicit
+paid cache retention is not enabled. The output limit is capped at 32,768 tokens; Pi thinking-level controls
+are disabled for this provider because reasoning parameters vary by backend.
+Existing sandboxes need recreation to pick up this kit change (see above).
+
+For an environment file workflow:
+
+```sh
+sbx env run ~/dotfiles/.sbx/pi.sbxenv.yaml ./.sbxenv.yaml
+```
+
+The project file must omit `agent` or use `agent: pi`; it must not
+include Claude/Codex-specific kits. For a one-off creation:
+
+```sh
+sbx create \
+  --kit ~/dotfiles/.sbx/kits/pi \
+  --kit ~/dotfiles/.sbx/kits/node-toolchain \
+  --kit ~/dotfiles/.sbx/kits/skills \
+  pi .
+```
+
+The custom-agent structure follows Docker's
+[kit reference](https://docs.docker.com/ai/sandboxes/customize/kit-reference/).
+Use `sbx-agent` to wait for toolchain startup before attaching.
+
+## Playwright and headless Chromium
+
+Every new sandbox created through these launcher modes or base environment
+files includes `@playwright/test` (currently 1.63.0), the `playwright` CLI,
+Chromium, its headless shell, and the required Linux libraries. Bare `sbx run`
+commands that omit these kits do not inherit these defaults.
+
+Browser binaries download as the agent user into `~/.cache/ms-playwright`,
+where Playwright looks by default. System libraries install as root. The setup
+uses Playwright's [browser installation commands](https://playwright.dev/docs/browsers).
+
+Inside a sandbox, check the CLI or take a screenshot:
+
+```sh
+playwright --version
+playwright screenshot --browser chromium https://example.com /tmp/example.png
+```
+
+For project tests, declare `@playwright/test` in the project's dev dependencies;
+Node does not automatically resolve global npm packages in project imports.
+Matching the shared version reuses the downloaded browser. A project with a
+different Playwright version needs its own `npx playwright install chromium`.
+For a standalone script using the preinstalled package:
+
+```sh
+node <<'JS'
+const { chromium } = require('/usr/local/share/npm-global/lib/node_modules/@playwright/test');
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  await page.setContent('<h1>Chromium works</h1>');
+  console.log(await page.locator('h1').innerText());
+  await browser.close();
+})();
+JS
+```
+
+Recreate existing sandboxes to receive these defaults; the launcher deliberately
+reuses them without provisioning. Save any needed sandbox-local state first.
+
+## Development checks
+
+Run `python3 -m unittest discover -s tests -v` for launcher routing, argument
+forwarding, reuse, and failure handling. Validate kit specs on the host with
+`sbx kit validate kits/pi` and `sbx kit validate kits/node-toolchain`.
