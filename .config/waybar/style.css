@@ -1,0 +1,57 @@
+/* Colors from the swaybar block in ~/.config/sway/config:
+   ink #e0e6eb, dim #858c94, faint #555a60 on black. */
+
+* {
+    font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace;
+    font-size: 10pt;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+}
+
+window#waybar {
+    background: #000000;
+    color: #e0e6eb;
+}
+
+#workspaces button {
+    min-width: 25px;
+    padding: 0 4px;
+    background: #000000;
+    color: #555a60;
+}
+
+/* Each output has its own bar showing only its own tags, so there is no
+   focused/visible-elsewhere split like sway's: active is just ink. */
+#workspaces button.active {
+    color: #e0e6eb;
+}
+
+#workspaces button.urgent {
+    background: #900000;
+    color: #ffffff;
+}
+
+#workspaces button:hover {
+    background: #000000;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+#custom-keymode {
+    padding: 0 6px;
+    background: #900000;
+    color: #ffffff;
+}
+
+#custom-language,
+#backlight,
+#wireplumber,
+#battery,
+#clock {
+    padding: 0 0 0 6px;
+}
+
+#clock {
+    padding-right: 6px;
+}

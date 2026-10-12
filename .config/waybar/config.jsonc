@@ -1,0 +1,77 @@
+// Waybar for mango, laid out like the swaybar in ~/.config/sway/config
+// (status line from ~/.config/sway/status.sh).
+{
+    "layer": "top",
+    "position": "top",
+    "spacing": 0,
+    "modules-left": ["ext/workspaces", "custom/keymode"],
+    "modules-right": [
+        "custom/language",
+        "backlight",
+        "wireplumber#sink",
+        "wireplumber#source",
+        "battery",
+        "clock"
+    ],
+
+    // Mango's tags over the generic ext-workspace protocol, which repo waybar
+    // supports. Mango marks empty, unfocused tags hidden, so ignore-hidden
+    // hides them like sway. Tags are named 1-9; labelled like the sway
+    // workspaces 1:q .. 9:o
+    "ext/workspaces": {
+        "format": "{icon}",
+        "format-icons": {
+            "1": "q", "2": "w", "3": "e", "4": "r", "5": "t",
+            "6": "y", "7": "u", "8": "i", "9": "o"
+        },
+        "ignore-hidden": true,
+        "on-click": "activate"
+    },
+
+    // Shown only while a key mode is active, like sway's binding mode box
+    "custom/keymode": {
+        "exec": "~/.config/waybar/keymode.sh",
+        "tooltip": false
+    },
+
+    // Every module after the language starts with "| ", so a missing module
+    // (no battery, no backlight) leaves no stray separator, as in status.sh.
+    "custom/language": {
+        "exec": "mmsg watch keyboardlayout | jq --unbuffered -r .layout",
+        "tooltip": false
+    },
+
+    "backlight": {
+        "format": "| Brightness {percent}%"
+    },
+
+    "wireplumber#sink": {
+        "format": "| Volume {volume}%",
+        "format-muted": "| <s>Volume {volume}%</s>"
+    },
+
+    "wireplumber#source": {
+        "node-type": "Audio/Source",
+        "format": "| Mic {volume}%",
+        "format-muted": "| <s>Mic {volume}%</s>"
+    },
+
+    "battery": {
+        "bat": "BAT0",
+        "interval": 60,
+        "states": { "critical": 15 },
+        "format-time": "{H}:{m}",
+        "format": "| {capacity}%",
+        "format-full": "| Full {capacity}%",
+        "format-not-charging": "| Not charging {capacity}%",
+        "format-charging": "| Charging {capacity}% {time} to full",
+        "format-discharging": "| Discharging {capacity}% {time} left",
+        "format-discharging-critical": "| <span color=\"#ff5555\">⚠️ Discharging {capacity}% {time} left</span>"
+    },
+
+    "clock": {
+        "interval": 60,
+        "format": "| {:%a %F %H:%M}",
+        "tooltip": false
+    }
+}

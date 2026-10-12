@@ -1,13 +1,15 @@
 """User settings for the sway wallpaper. Edit freely; the program reloads on SIGUSR1."""
 
-# Which panel each output shows. Keys are sway output names (swaymsg -t get_outputs).
+# Which panel each output shows. Keys are monitor models or output names (both from
+# wlr-randr; a model wins over a name). Use models for docked monitors, whose DP-N
+# names change between connects.
 # Panels: "ambient" (sparse: clock, vitals, network), "portrait" (everything, for a
 # vertical screen), "ops" (system/network/git/calendar), "log" (workspace map +
 # journal). Unlisted outputs get DEFAULT_PANEL.
 PANELS = {
     "eDP-1": "ambient",
-    "DP-6": "ops",
-    "DP-4": "portrait",
+    "DELL P2422HE": "ops",
+    "DELL P2419HC": "portrait",
 }
 DEFAULT_PANEL = "ambient"
 

@@ -29,7 +29,8 @@ font pango:JetBrains Mono, DejaVu Sans Mono, monospace 10
 #output * bg /home/hsa/Pictures/pirlot_bath.jpg center
 
 # Autostart
-#exec_always pkill kanshi; exec kanshi 
+# Monitor layout: ~/.config/kanshi/config (shared with mango)
+exec_always pkill kanshi; exec kanshi
 # Live data wallpaper (see wallpaper/README.md). exec_always so a config reload restarts it.
 exec_always ~/.config/sway/wallpaper/wallpaper.sh
 
@@ -245,6 +246,18 @@ mode "resize" {
 }
 bindsym $mod+period mode "resize"
 
+#
+# Hibernate: $mod+Shift+z arms, then h confirms. Two deliberate presses so it
+# can't fire by accident; anything else (Escape/Return) backs out.
+#
+set $mode_hibernate "hibernate? [h]yes [esc]no"
+mode $mode_hibernate {
+    bindsym h mode "default", exec systemctl hibernate
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+Shift+z mode $mode_hibernate
+
 
 # Colors:
 # class                 border  bground text    indicator child_border
@@ -282,4 +295,3 @@ bar {
 }
 
 include /etc/sway/config.d/*
-include ~/.config/sway/outputs

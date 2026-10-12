@@ -127,11 +127,11 @@ alias k=kubectl
 alias kn=kubens
 
 claude() {
-  ~/.local/bin/sbx-agent claude "$@"
+  kbx claude "$@"
 }
 
 codex() {
-  ~/.local/bin/sbx-agent codex "$@"
+  kbx codex "$@"
 }
 
 # Added to path

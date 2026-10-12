@@ -378,7 +378,13 @@ if [ -t 1 ]; then
   SHELL_LOG=${SHELL_LOG//\$/\$\$}
   # Wait for Sway to accept the request before closing the launcher terminal.
   # Sway owns the new process, so terminal shutdown cannot race its startup.
-  swaymsg -- "exec /bin/sh -c '$SHELL_COMMAND' >>'$SHELL_LOG' 2>&1 </dev/null" >>"$LAUNCH_LOG" 2>&1
+  if [ -n "${SWAYSOCK:-}" ]; then
+    swaymsg -- "exec /bin/sh -c '$SHELL_COMMAND' >>'$SHELL_LOG' 2>&1 </dev/null" >>"$LAUNCH_LOG" 2>&1
+  else
+    # Other compositors (mango): detach into a new session so closing the
+    # launcher terminal doesn't take the app with it.
+    setsid -f /bin/sh -c "$COMMAND" >>"$LAUNCH_LOG" 2>&1 </dev/null
+  fi
 else
   echo "${COMMAND}"
 fi

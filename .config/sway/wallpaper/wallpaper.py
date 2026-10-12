@@ -115,6 +115,19 @@ def swaymsg(kind):
         return None
 
 
+def get_outputs():
+    """[(name, model, x, y)] for the enabled outputs. wlr-randr works under any wlroots
+    compositor (sway and mango); GDK can't be asked, it reports every model as "Unknown"."""
+    try:
+        outs = json.loads(subprocess.run(["wlr-randr", "--json"], capture_output=True,
+                                         text=True, timeout=3).stdout or "null")
+        return [(o["name"], o.get("model"), o["position"]["x"], o["position"]["y"])
+                for o in outs if o.get("enabled")]
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+        return [(o["name"], o.get("model"), o["rect"]["x"], o["rect"]["y"])
+                for o in swaymsg("get_outputs") or [] if o.get("active")]
+
+
 def parse_tree(tree):
     """Per-output visibility and a compact workspace map.
 
@@ -165,14 +178,14 @@ def run_app():
     import cairo
 
     data = Data()
-    outputs_by_pos = {}  # (x, y) -> sway output name
+    outputs_by_pos = {}  # (x, y) -> (output name, monitor model)
     state = {}           # sway output name -> parse_tree entry
     windows = {}         # Gdk.Monitor -> Surface
 
     class Surface:
         def __init__(self, monitor):
             self.monitor = monitor
-            self.name = None
+            self.name = self.model = None
             self.win = Gtk.Window()
             GtkLayerShell.init_for_window(self.win)
             GtkLayerShell.set_layer(self.win, GtkLayerShell.Layer.BACKGROUND)
@@ -193,18 +206,34 @@ def run_app():
             self.field = None
             self.dirty = True
             self.resolve_name()
+            # Outputs move after we start (kanshi applying a layout), and mango sends
+            # no sway output events, so look the output up again whenever GDK moves it.
+            monitor.connect("notify::geometry", lambda *_: refresh_outputs())
 
         def resolve_name(self):
             g = self.monitor.get_geometry()
-            self.name = outputs_by_pos.get((g.x, g.y)) or (self.monitor.get_model() or "?")
+            name, model = outputs_by_pos.get((g.x, g.y), ("?", None))
+            if (name, model) != (self.name, self.model):
+                self.name, self.model = name, model
+                print(f"surface at {g.x},{g.y} {g.width}x{g.height}: {name} ({model}), panel {self.panel}",
+                      file=sys.stderr)
+                self.area.queue_draw()
+
+        def setting(self, table, default):
+            # Keyed by monitor model or output name; the model wins, since the dock
+            # renames its DP-N outputs between connects.
+            for key in (self.model, self.name):
+                if key in table:
+                    return table[key]
+            return default
 
         @property
         def panel(self):
-            return config.PANELS.get(self.name, config.DEFAULT_PANEL)
+            return self.setting(config.PANELS, config.DEFAULT_PANEL)
 
         @property
         def field_name(self):
-            return getattr(config, "FIELDS", {}).get(self.name, config.FIELD)
+            return self.setting(getattr(config, "FIELDS", {}), config.FIELD)
 
         def visible(self):
             st = state.get(self.name)
@@ -226,11 +255,9 @@ def run_app():
             return True
 
     def refresh_outputs():
-        outs = swaymsg("get_outputs") or []
         outputs_by_pos.clear()
-        for o in outs:
-            r = o.get("rect", {})
-            outputs_by_pos[(r.get("x"), r.get("y"))] = o["name"]
+        for name, model, x, y in get_outputs():
+            outputs_by_pos[(x, y)] = (name, model)
         for s in windows.values():
             s.resolve_name()
 

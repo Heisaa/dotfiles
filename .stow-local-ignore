@@ -17,5 +17,6 @@ _darcs
 ^/LICENSE.*
 ^/COPYING
 ^/\.stowrc$
+\__pycache__
 
 sbx
