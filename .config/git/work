@@ -1,0 +1,5 @@
+[user]
+    name =
+    email =
+[core]
+    sshCommand = ssh -i ~/.ssh/KEY_NAME -o IdentitiesOnly=yes

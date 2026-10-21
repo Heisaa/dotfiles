@@ -186,6 +186,7 @@ class Power:
         self.watts = 0.0
         self.hours_left = None
         self.hist = deque([0.0] * HIST, maxlen=HIST)
+        self._at = -self.EVERY
         self.cycles = read((self.dir or "") + "/cycle_count", "")
         self.health = None
         full, design = read((self.dir or "") + "/charge_full"), read((self.dir or "") + "/charge_full_design")
@@ -194,9 +195,20 @@ class Power:
         if full.isdigit() and design.isdigit() and int(design):
             self.health = int(full) / int(design)
 
+    # Reading `status` runs an ACPI battery query (~6 ms of kernel time) whenever the
+    # kernel's ~1 s cache has expired, i.e. on every 1 Hz tick; the rest reuse it.
+    EVERY = 5.0
+
     def sample(self):
         if not self.present:
             return
+        now = time.monotonic()
+        if now - self._at >= self.EVERY - 0.1:
+            self._at = now
+            self._read()
+        self.hist.append(self.watts if not self.on_ac else 0.0)  # every tick, to keep the graph's time scale
+
+    def _read(self):
         d = self.dir
         self.status = read(d + "/status", "Unknown")
         self.level = int(read(d + "/capacity", "100") or 100)
@@ -208,7 +220,6 @@ class Power:
             ua, uv = read(d + "/current_now", "0"), read(d + "/voltage_now", "0")
             uw = int(ua or 0) * int(uv or 0) / 1e6
         self.watts = uw / 1e6
-        self.hist.append(self.watts if not self.on_ac else 0.0)
         self.hours_left = None
         if uw > 0:
             if self.status == "Discharging":
@@ -225,14 +236,31 @@ class Power:
 
 
 class Thermal:
+    FANS_EVERY = 5.0
+
     def __init__(self):
         self.zones = []
         for z in glob.glob("/sys/class/thermal/thermal_zone*"):
             self.zones.append((read(z + "/type", "?"), z + "/temp"))
-        self.fans = glob.glob("/sys/class/hwmon/hwmon*/fan*_input")
+        # Only read the zones the reading is taken from. ACPI zones (SEN*, TCPU) go
+        # through firmware and cost 3-5 ms each, per tick; x86_pkg_temp is a register.
+        pkg = [z for z in self.zones if z[0] == "x86_pkg_temp"]
+        pref = [z for z in self.zones if self.preferred(z[0])]
+        self.zones = pkg or pref or self.zones
+        # dell_smm reads trap into the BIOS (~3 ms each); dell_ddv sees the same fans more
+        # cheaply, but still refreshes them through WMI (~9 ms) once its short cache expires,
+        # so fans are only read every FANS_EVERY seconds.
+        fans = glob.glob("/sys/class/hwmon/hwmon*/fan*_input")
+        cheap = [f for f in fans if read(os.path.dirname(f) + "/name") != "dell_smm"]
+        self.fans = cheap or fans
         self.temp = 0.0
         self.fan_rpm = None
+        self._fans_at = -self.FANS_EVERY
         self.hist = deque([0.0] * HIST, maxlen=HIST)
+
+    @staticmethod
+    def preferred(kind):
+        return "pkg" in kind or "cpu" in kind.lower() or "acpitz" in kind
 
     def sample(self):
         temps = []
@@ -240,11 +268,14 @@ class Thermal:
             t = read(path, "")
             if t.lstrip("-").isdigit():
                 temps.append((kind, int(t) / 1000))
-        pref = [t for k, t in temps if "pkg" in k or "cpu" in k.lower() or "acpitz" in k]
+        pref = [t for k, t in temps if self.preferred(k)]
         self.temp = max(pref) if pref else (max(t for _, t in temps) if temps else 0.0)
         self.hist.append(self.temp)
-        rpms = [int(read(f, "0") or 0) for f in self.fans]
-        self.fan_rpm = max(rpms) if rpms else None
+        now = time.monotonic()
+        if now - self._fans_at >= self.FANS_EVERY - 0.1:
+            self._fans_at = now
+            rpms = [int(read(f, "0") or 0) for f in self.fans]
+            self.fan_rpm = max(rpms) if rpms else None
 
 
 # ---------------------------------------------------------------- Disk
@@ -378,8 +409,11 @@ def containers():
 
 
 class Procs:
-    """Per-process CPU share and RSS, for the starfield. ~300 pids x 2 small
-    files per tick; only sampled when a field that needs it is visible."""
+    """Per-process CPU share and RSS, for the starfield and the top list. One small
+    file per pid; only sampled when something that needs it is visible, and
+    at most every EVERY seconds, since a full /proc walk is the costliest read here."""
+
+    EVERY = 5.0
 
     PAGE = os.sysconf("SC_PAGE_SIZE")
     CLK = os.sysconf("SC_CLK_TCK")
@@ -401,15 +435,14 @@ class Procs:
             try:
                 with open(f"/proc/{pid}/stat") as f:
                     st = f.read()
-                with open(f"/proc/{pid}/statm") as f:
-                    rss = int(f.read().split()[1]) * self.PAGE
-            except (OSError, ValueError):
+            except OSError:
                 continue
+            rp = st.rindex(")")
+            f = st[rp + 2:].split()  # f[n - 3] is field n of proc(5)
+            rss = int(f[21]) * self.PAGE
             if rss == 0:
                 continue  # kernel thread
-            rp = st.rindex(")")
             comm = st[st.index("(") + 1:rp]
-            f = st[rp + 2:].split()
             ticks = int(f[11]) + int(f[12])
             threads += int(f[17])
             cur[pid] = ticks

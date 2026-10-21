@@ -9,10 +9,12 @@ the output is powered off. See config.py for settings.
     wallpaper.py --preview DIR   render every panel to PNG (no compositor needed)
     wallpaper.py --preview DIR --fields   render the ambient panel once per field
     kill -USR1 <pid>             reload config.py / theme
+    kill -USR2 <pid>             log where the cpu went since the last USR2
 """
 
 import importlib
 import json
+import math
 import os
 import signal
 import subprocess
@@ -48,6 +50,7 @@ class Data:
         self.load, self.nprocs, self.uptime = [0, 0, 0], "", ""
         self.phase = 0.0  # ripple phase, advances with cpu load
         self.scale = 1.0
+        self.tick = config.TICK_AC  # redraw interval of the panel being drawn
         self.sun_times, self.sun_elev, self._sun_day = (None, None), 0.0, None
         self.subsolar = (0.0, 0.0)
         self.sockets = geo.Sockets(config.GEOIP_DB, config.GEOIP_ONLINE)
@@ -64,6 +67,7 @@ class Data:
         self._containers = C.Cadenced(C.containers, 60, None)
         self.tree = []          # workspace map from sway
         self.journal = deque(maxlen=60)
+        self.timing = {}        # collector name -> cpu seconds, reset by the SIGUSR2 report
 
     failed = property(lambda s: s._failed.value)
     ping = property(lambda s: s._ping.value)
@@ -72,20 +76,37 @@ class Data:
     ssh = property(lambda s: s._ssh.value)
     git = property(lambda s: s._git.value)
     calendar = property(lambda s: s._cal.value)
-    top = property(lambda s: s._top.value)
+    def _procs_fresh(self):
+        return self.procs.at is not None and time.monotonic() - self.procs.at < self._top.every
+
+    @property
+    def top(self):
+        """(rss, name) of the biggest processes. Taken from the per-process scan when
+        one is running anyway; otherwise from top_procs' own, slower scan."""
+        if self._procs_fresh():
+            return sorted(((rss, comm) for _, comm, rss, _ in self.procs.rows), reverse=True)[:5]
+        return self._top.value
     containers = property(lambda s: s._containers.value)
+
+    def _timed(self, name, fn):
+        """Run fn, adding its cpu time to self.timing[name] (logged on SIGUSR2)."""
+        t0 = time.process_time()
+        try:
+            return fn()
+        finally:
+            self.timing[name] = self.timing.get(name, 0.0) + time.process_time() - t0
 
     def sample(self, need_ops=False, need_procs=False):
         now = time.monotonic()
         dt, self._last = now - self._last, now
-        for c in (self.cpu, self.mem, self.net, self.power, self.thermal, self.disk, self.kstat):
-            c.sample()
+        for name in ("cpu", "mem", "net", "power", "thermal", "disk", "kstat"):
+            self._timed(name, getattr(self, name).sample)
         self.load, self.nprocs = C.loadavg()
-        if need_procs:
-            self.procs.sample()
+        if need_procs and (self.procs.at is None or now - self.procs.at >= self.procs.EVERY - 0.1):
+            self._timed("procs", self.procs.sample)
         self.uptime = C.uptime()
-        self.freq_range = C.cpu_freq_range()
-        self._ping.get()
+        self.freq_range = self._timed("freq", C.cpu_freq_range)
+        self._timed("ping", self._ping.get)
         # the ripple only moves on AC; speed follows cpu load (one wavelength per ~40 s idle)
         if self.power.on_ac:
             self.phase += dt * (1 / 40.0) * (1 + 4 * self.cpu.total)
@@ -96,18 +117,27 @@ class Data:
         self.subsolar = sun.subsolar()
         if need_ops:
             if config.SHOW_SOCKETS:
-                self.sockets.poll()
+                self._timed("sockets", self.sockets.poll)
             if config.SHOW_QUAKES:
-                self.quakes.poll()
-        if need_ops:
-            for c in (self._failed, self._updates, self._ports, self._ssh, self._git, self._cal,
-                      self._top, self._containers):
-                c.get()
+                self._timed("quakes", self.quakes.poll)
+            for name in ("failed", "updates", "ports", "ssh", "git", "cal", "containers"):
+                self._timed(name, getattr(self, "_" + name).get)
+            if not self._procs_fresh():
+                self._timed("top", self._top.get)
 
 
 # ---------------------------------------------------------------- sway IPC
 
+def on_sway():
+    """swaymsg only works under sway; under mango (or another wlroots compositor)
+    there is no socket, and every call would just fail."""
+    sock = os.environ.get("SWAYSOCK")
+    return bool(sock) and os.path.exists(sock)
+
+
 def swaymsg(kind):
+    if not on_sway():
+        return None
     try:
         return json.loads(subprocess.run(["swaymsg", "-t", kind, "-r"], capture_output=True,
                                          text=True, timeout=3).stdout or "null")
@@ -166,6 +196,56 @@ def parse_tree(tree):
     return result
 
 
+# ---------------------------------------------------------------- mango IPC
+
+def on_mango():
+    return bool(os.environ.get("MANGO_INSTANCE_SIGNATURE"))
+
+
+def mmsg(*args):
+    if not on_mango():
+        return None
+    try:
+        return json.loads(subprocess.run(["mmsg", *args], capture_output=True,
+                                         text=True, timeout=3).stdout or "null")
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+def parse_mango(clients, monitors):
+    """Same shape as parse_tree, from `mmsg get all-clients` and `mmsg get all-monitors`.
+    Tags stand in for workspaces; only active or occupied ones are listed, since
+    mango always has all nine."""
+    result = {}
+    if not monitors:
+        return result
+    clients = (clients or {}).get("clients", [])
+    for mon in monitors.get("monitors", []):
+        name, active = mon["name"], set(mon.get("active_tags", []))
+        mine = [c for c in clients if c.get("monitor") == name and not c.get("is_minimized")]
+        covered = any(c.get("is_visible") and (not c.get("is_floating") or c.get("is_fullscreen"))
+                      for c in mine)
+        wss = [{"name": str(t["index"]), "visible": t["index"] in active,
+                "focused": bool(mon.get("active")) and t["index"] in active,
+                "windows": [c.get("appid") or c.get("title") or "?"
+                            for c in mine if t["index"] in c.get("tags", [])][:6]}
+               for t in mon.get("tags", []) if t["index"] in active or t.get("client_count")]
+        # mango reports logical size; scale it back to the mode, as sway shows it
+        scale = mon.get("scale") or 1
+        mode = (f'{round(mon["width"] * scale)}x{round(mon["height"] * scale)}'
+                if mon.get("width") else "")
+        result[name] = {"covered": covered, "power": True, "workspaces": wss, "mode": mode}
+    return result
+
+
+def query_state():
+    if on_sway():
+        return parse_tree(swaymsg("get_tree"))
+    if on_mango():
+        return parse_mango(mmsg("get", "all-clients"), mmsg("get", "all-monitors"))
+    return {}
+
+
 # ---------------------------------------------------------------- GTK app
 
 def run_app():
@@ -181,6 +261,9 @@ def run_app():
     outputs_by_pos = {}  # (x, y) -> (output name, monitor model)
     state = {}           # sway output name -> parse_tree entry
     windows = {}         # Gdk.Monitor -> Surface
+    # where the time goes; `kill -USR2 <pid>` logs it and starts over
+    stats = {"wall": time.monotonic(), "cpu": time.process_time(), "ticks": 0, "sample": 0.0,
+             "draws": {}}
 
     class Surface:
         def __init__(self, monitor):
@@ -205,6 +288,11 @@ def run_app():
             self.win.show_all()
             self.field = None
             self.dirty = True
+            self.due = 0.0          # wall time of the next full redraw
+            self.cache = None       # slow panels: everything but the live readouts
+            self.cache_key = None
+            self.live = []          # [(x, y, w, h, fn)] drawn over the cache every tick
+            self.want_full = True
             self.resolve_name()
             # Outputs move after we start (kanshi applying a layout), and mango sends
             # no sway output events, so look the output up again whenever GDK moves it.
@@ -217,7 +305,7 @@ def run_app():
                 self.name, self.model = name, model
                 print(f"surface at {g.x},{g.y} {g.width}x{g.height}: {name} ({model}), panel {self.panel}",
                       file=sys.stderr)
-                self.area.queue_draw()
+                self.redraw()
 
         def setting(self, table, default):
             # Keyed by monitor model or output name; the model wins, since the dock
@@ -235,6 +323,23 @@ def run_app():
         def field_name(self):
             return self.setting(getattr(config, "FIELDS", {}), config.FIELD)
 
+        def tick(self):
+            """How often the live readouts update."""
+            on_ac = not data.power.present or data.power.on_ac
+            return config.TICK_AC if on_ac else config.TICK_BATTERY
+
+        def full_interval(self):
+            """How often the whole panel is redrawn; above tick() the panel is cached."""
+            return max(self.tick(), getattr(config, "PANEL_TICK", {}).get(self.panel, 0))
+
+        def redraw(self, full=True):
+            if full or self.cache is None:
+                self.want_full = True
+                self.area.queue_draw()
+                return
+            for x, y, w, h, _ in self.live:
+                self.area.queue_draw_area(int(x), int(y), math.ceil(w) + 2, math.ceil(h) + 2)
+
         def visible(self):
             st = state.get(self.name)
             if not st:
@@ -245,12 +350,39 @@ def run_app():
             w, h = area.get_allocated_width(), area.get_allocated_height()
             if not self.field or (self.field.w, self.field.h) != (w, h):
                 self.field = fields.make(self.field_name, w, h, r=config.HEX_RADIUS, density=config.HEX_DENSITY)
-            data.scale = self.monitor.get_scale_factor()
+            scale = data.scale = self.monitor.get_scale_factor()
+            data.tick = self.tick()
             data.tree = [dict(name=n, **st) for n, st in state.items()]
+            panel, pal = draw.PANELS.get(self.panel, draw.panel_ambient), draw.palette(config.TINT)
+            t0 = time.process_time()
+            kind = "full"
             try:
-                draw.PANELS.get(self.panel, draw.panel_ambient)(cr, w, h, data, draw.palette(config.TINT), time.time(), self.field)
+                if self.full_interval() <= self.tick():
+                    self.cache, self.live = None, []
+                    panel(cr, w, h, data, pal, time.time(), self.field)
+                else:
+                    key = (w, h, scale)
+                    if self.want_full or self.cache is None or self.cache_key != key:
+                        self.cache = cairo.ImageSurface(cairo.FORMAT_ARGB32, w * scale, h * scale)
+                        self.cache.set_device_scale(scale, scale)
+                        self.cache_key = key
+                        self.live = draw.render_cached(panel, cairo.Context(self.cache), w, h, data, pal,
+                                                       time.time(), self.field)
+                    else:
+                        kind = "live"
+                    cr.set_source_surface(self.cache, 0, 0)
+                    cr.paint()
+                    for x, y, lw, lh, fn in self.live:
+                        cr.save()
+                        cr.rectangle(x, y, lw, lh)
+                        cr.clip()
+                        fn(cr)
+                        cr.restore()
             except Exception as e:  # noqa: BLE001 - keep the surface alive; report once per tick
                 print("draw error:", repr(e), file=sys.stderr)
+            self.want_full = False
+            n, total = stats["draws"].get((self.name, kind), (0, 0.0))
+            stats["draws"][(self.name, kind)] = (n + 1, total + time.process_time() - t0)
             self.dirty = False
             return True
 
@@ -263,7 +395,7 @@ def run_app():
 
     def refresh_state():
         state.clear()
-        state.update(parse_tree(swaymsg("get_tree")))
+        state.update(query_state())
 
     display = Gdk.Display.get_default()
 
@@ -283,36 +415,51 @@ def run_app():
     display.connect("monitor-added", add_monitor)
     display.connect("monitor-removed", remove_monitor)
 
-    # sway events: workspace/window changes decide whether we are visible at all
-    def start_subscribe():
-        proc = subprocess.Popen(["swaymsg", "-t", "subscribe", "-m", '["workspace","output","window","mode"]'],
-                                stdout=subprocess.PIPE, text=True)
-        pending = {"id": None}
+    # Compositor events: workspace/window changes decide whether we are visible at all.
+    # Each event only schedules a state query; bursts are coalesced into one.
+    pending = {"id": None}
 
-        def flush():
-            pending["id"] = None
-            was = {n: s.visible() for n, s in ((s.name, s) for s in windows.values())}
-            refresh_state()
-            for s in windows.values():
-                if s.visible() and (not was.get(s.name) or s.panel == "log"):
-                    s.area.queue_draw()
-            return False
+    def flush():
+        pending["id"] = None
+        was = {n: s.visible() for n, s in ((s.name, s) for s in windows.values())}
+        refresh_state()
+        for s in windows.values():
+            if s.visible() and (not was.get(s.name) or s.panel == "log"):
+                s.redraw()
+        return False
+
+    def watch(cmd, on_event=None):
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
 
         def on_line(src, cond):
             line = proc.stdout.readline()
             if not line:
-                GLib.timeout_add(2000, start_subscribe)
+                proc.wait()
+                GLib.timeout_add(2000, lambda: watch(cmd, on_event))
                 return False
-            if '"output"' in line or '"change": "unspecified"' in line:
-                refresh_outputs()
-            if pending["id"] is None:  # coalesce bursts of events into one tree query
+            if on_event:
+                on_event(line)
+            if pending["id"] is None:
                 pending["id"] = GLib.timeout_add(150, flush)
             return True
 
         GLib.io_add_watch(proc.stdout, GLib.IO_IN | GLib.IO_HUP, on_line)
         return False
 
-    start_subscribe()
+    def on_sway_event(line):
+        if '"output"' in line or '"change": "unspecified"' in line:
+            refresh_outputs()
+
+    if on_sway():
+        watch(["swaymsg", "-t", "subscribe", "-m", '["workspace","output","window","mode"]'], on_sway_event)
+    elif on_mango():
+        # clients covers windows opening, moving and floating; tags covers tag switches
+        watch(["mmsg", "watch", "all-clients"])
+        watch(["mmsg", "watch", "all-tags"])
+    else:
+        # Nothing to follow, and retrying would spawn a failing command every 2 s
+        # forever; every surface then counts as visible.
+        print("unknown compositor: no workspace events, never sleeping when covered", file=sys.stderr)
 
     # journal follower for the log panel; only started when some output shows it
     if True:  # the ambient panel shows a journal tail too, so always follow
@@ -346,12 +493,21 @@ def run_app():
     def do_tick():
         vis = [s for s in windows.values() if s.visible()]
         # hidden: sample every 5 s so the history stays continuous, draw nothing
+        t0 = time.process_time()
         data.sample(need_ops=any(s.panel in ("ops", "ambient", "portrait") for s in vis),
                     need_procs=any(s.panel in ("ambient", "portrait") or s.field_name in fields.NEEDS_PROCS for s in vis))
+        stats["ticks"] += 1
+        stats["sample"] += time.process_time() - t0
+        # Each surface redraws fully on its own interval's wall-clock boundary; in
+        # between, slow (cached) panels only repaint their live readouts.
+        now = time.time()
         for s in vis:
-            s.area.queue_draw()
-        on_ac = not data.power.present or data.power.on_ac
-        interval = (config.TICK_AC if on_ac else config.TICK_BATTERY) if vis else max(5.0, config.TICK_BATTERY)
+            full = now + 0.1 >= s.due
+            if full:
+                iv = s.full_interval()
+                s.due = now - (now % iv) + iv
+            s.redraw(full)
+        interval = min(s.tick() for s in vis) if vis else max(5.0, config.TICK_BATTERY)
         # Schedule against the wall clock rather than "interval after this tick finished",
         # otherwise sampling time accumulates and the seconds readout skips a beat.
         delay = interval - (time.time() % interval) + 0.02
@@ -365,12 +521,37 @@ def run_app():
         draw._font_cache.clear()
         for s in windows.values():
             s.field = None
-            s.area.queue_draw()
+            s.redraw()
         return True
 
-    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, reload)
-    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, lambda *_: Gtk.main_quit())
-    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda *_: Gtk.main_quit())
+    def report(*_):
+        wall = time.monotonic() - stats["wall"]
+        cpu = time.process_time() - stats["cpu"]
+        draws = sum(t for _, t in stats["draws"].values())
+        pct = lambda t: f"{100 * t / wall:.1f}%"  # noqa: E731
+        print(f"stats over {wall:.0f} s: cpu {pct(cpu)} = sample {pct(stats['sample'])} "
+              f"({stats['ticks']} ticks) + draw {pct(draws)} + other {pct(cpu - stats['sample'] - draws)}",
+              file=sys.stderr)
+        for (name, kind), (n, t) in sorted(stats["draws"].items()):
+            st = state.get(name, {})
+            print(f"  {name} {kind}: {n} draws, {1000 * t / max(n, 1):.1f} ms each, covered={st.get('covered')}",
+                  file=sys.stderr)
+        top = sorted(data.timing.items(), key=lambda kv: kv[1], reverse=True)[:8]
+        print("  sample: " + ", ".join(f"{k} {pct(v)}" for k, v in top), file=sys.stderr)
+        data.timing.clear()
+        stats.update(wall=time.monotonic(), cpu=time.process_time(), ticks=0, sample=0.0, draws={})
+        return True
+
+    try:  # GLib.unix_signal_add is deprecated in newer PyGObject
+        gi.require_version("GLibUnix", "2.0")
+        from gi.repository import GLibUnix
+        signal_add = GLibUnix.signal_add
+    except (ValueError, ImportError):
+        signal_add = GLib.unix_signal_add
+    signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1, reload)
+    signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2, report)
+    signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, lambda *_: Gtk.main_quit())
+    signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, lambda *_: Gtk.main_quit())
     Gtk.main()
 
 

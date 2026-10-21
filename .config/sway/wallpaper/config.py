@@ -41,6 +41,10 @@ CALENDAR_CMD = "khal list now 2d --format '{start-date-long} {start-time} {title
 # Redraw cadence in seconds. On battery the wallpaper ticks slower and the ripple stops.
 TICK_AC = 1.0
 TICK_BATTERY = 5.0
+# Full-redraw interval for some panels (seconds). A full portrait redraw costs
+# ~15-30 ms, so it is redrawn every 5 s; its live readouts (clock, rates, graphs)
+# still update every tick, over a cached copy of the rest.
+PANEL_TICK = {"portrait": 5.0}
 
 # Ambient field behind the readouts: "contours", "stars", "traces", "radar", "flow",
 # "hex", or "blank" (nothing, pure black). Per-output override: FIELDS = {"DP-6": "flat"}.

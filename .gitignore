@@ -3,3 +3,6 @@ lazy-lock.json
 # Claude Code project-local files (this repo's own session state)
 .claude/settings.local.json
 .claude/.cc-writes/
+
+# Python bytecode
+__pycache__/

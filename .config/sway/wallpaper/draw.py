@@ -88,6 +88,34 @@ def text(cr, x, y, s, size=11, color=(1, 1, 1), a=1.0, weight="normal", align="l
     return tw, th
 
 
+_live = None  # list while a panel is rendered into its cache; None draws everything at once
+
+
+def live(cr, x, y, w, h, fn):
+    """A readout that changes every tick (clock, rates, graphs). Normally drawn at
+    once. While a slow panel is rendered into its cache it is left out instead and
+    kept with the rect it paints into, so each tick can repaint just that rect from
+    the cache and call fn(cr) again. fn must read data when called, not when made."""
+    if _live is None:
+        cr.save()  # so the cached and direct renders leave the same state (line join etc.) behind
+        fn(cr)
+        cr.restore()
+    else:
+        # padded: strokes reach a little past the nominal box, and the clip would cut them
+        _live.append((x - 2, y - 2, w + 4, h + 4, fn))
+
+
+def render_cached(panel, cr, w, h, data, p, t, field):
+    """Draw a panel without its live readouts; returns them as [(x, y, w, h, fn)]."""
+    global _live
+    _live = []
+    try:
+        panel(cr, w, h, data, p, t, field)
+        return _live
+    finally:
+        _live = None
+
+
 def hline(cr, x1, x2, y, color, a=1.0, width=1.0):
     col(cr, color, a)
     cr.set_line_width(width)
@@ -162,11 +190,8 @@ def level_color(frac, p, hi=0.85, mid=0.6):
 # ---------------------------------------------------------------- shared bits
 
 def clock_fmt(data):
-    """Seconds only when the wallpaper actually ticks every second (on AC)."""
-    pw = data.power
-    on_ac = not pw.present or pw.on_ac
-    tick = config.TICK_AC if on_ac else config.TICK_BATTERY
-    return "%H:%M:%S" if tick <= 1.0 else "%H:%M"
+    """Seconds only when the panel being drawn actually ticks every second."""
+    return "%H:%M:%S" if data.tick <= 1.0 else "%H:%M"
 
 
 def heading(cr, x, y, s, p, w=None):
@@ -501,7 +526,8 @@ def block_system(cr, x, y0, w, data, p, h=None, clock=True):
     ix, iw = x + 16, w - 32
     if clock:
         y += 6
-        text(cr, ix, y, now.strftime(clock_fmt(data)), 54, p["ink"], 1.0, "light", spacing=6)
+        live(cr, ix, y, iw, 72, lambda cr, y=y: text(cr, ix, y, datetime.now().strftime(clock_fmt(data)), 54,
+                                                      p["ink"], 1.0, "light", spacing=6))
         y += 74
     y = stat_row(cr, ix, y, iw, [(now.strftime("%Y"), now.strftime("%b %d").upper()), ("uptime", data.uptime),
                                  ("type", "linux"), ("power", f"{pw.level}%" if pw.present else "ac")], p)
@@ -516,18 +542,27 @@ def block_system(cr, x, y0, w, data, p, h=None, clock=True):
     half = max(1, len(cores) // 2) if len(cores) > 1 else 1
     groups = [cores[:half], cores[half:]] if len(cores) > 1 else [cores]
     hist_groups = [data.cpu.hist_a, data.cpu.hist_b] if len(cores) > 1 else [data.cpu.hist]
-    for gi, (grp, hist) in enumerate(zip(groups, hist_groups)):
-        if not grp:
+    for gi, hist in enumerate(hist_groups):
+        if not groups[gi]:
             continue
         lo = 1 + gi * half
-        text(cr, ix, y, f"# {lo} - {lo + len(grp) - 1}", 10, p["ink"], 0.9, "medium")
-        text(cr, ix, y + 15, f"Avg. {sum(grp) / len(grp) * 100:.0f}%", 9, p["dim"])
-        grid_spark(cr, ix + 76, y, iw - 76, 40, [(hist, 0.9)], 1.0, p)
+        text(cr, ix, y, f"# {lo} - {lo + len(groups[gi]) - 1}", 10, p["ink"], 0.9, "medium")
+
+        def cpu_group(cr, gi=gi, hist=hist, y=y):
+            cores = data.cpu.cores or [data.cpu.total]
+            grp = cores[:half] if gi == 0 and len(cores) > 1 else cores[half:] if gi else cores
+            text(cr, ix, y + 15, f"Avg. {sum(grp) / max(1, len(grp)) * 100:.0f}%", 9, p["dim"])
+            grid_spark(cr, ix + 76, y, iw - 76, 40, [(hist, 0.9)], 1.0, p)
+        live(cr, ix, y, iw, 44, cpu_group)
         y += 54
-    fmin, fmax = data.freq_range
-    y = stat_row(cr, ix, y, iw, [("temp", f"{data.thermal.temp:.0f}°C" if data.thermal.temp else "—"),
+
+    def cpu_stats(cr, y=y):
+        fmin, fmax = data.freq_range
+        stat_row(cr, ix, y, iw, [("temp", f"{data.thermal.temp:.0f}°C" if data.thermal.temp else "—"),
                                  ("min", f"{fmin:.2f}GHz"), ("max", f"{fmax:.2f}GHz"),
                                  ("tasks", data.nprocs.split("/")[-1])], p, big=11)
+    live(cr, ix, y, iw, 32, cpu_stats)
+    y += 14 + 11 + 12
     hline(cr, ix, ix + iw, y - 4, p["faint"], 0.9)
     y += 8
     y = section(cr, ix, y, iw, "memory", f"USING {fmt_bytes(mem.used)} OUT OF {fmt_bytes(mem.total)}", p)
@@ -596,13 +631,16 @@ def block_network(cr, x, y0, w, data, p, h=None, graph_h=150):
         y += 10
     hline(cr, ix, ix + iw, y - 4, p["faint"], 0.9)
     y += 8
-    netmax = max(200 * 1024, max(net.rx_hist) * 1.2, max(net.tx_hist) * 1.2)
-    y = section(cr, ix, y, iw, "network traffic", f"UP {fmt_bytes(net.tx, True)}  DOWN {fmt_bytes(net.rx, True)}", p)
     if h:
-        graph_h = h - (y - y0) - 96
-    grid_spark(cr, ix, y, iw, graph_h, [(list(net.rx_hist)[-300:], 0.9), (list(net.tx_hist)[-300:], 0.45)], netmax, p,
-               label=fmt_bytes(netmax, True))
-    y += graph_h + 10
+        graph_h = h - (y + 30 - y0) - 96
+
+    def traffic(cr, y=y):
+        netmax = max(200 * 1024, max(net.rx_hist) * 1.2, max(net.tx_hist) * 1.2)
+        y = section(cr, ix, y, iw, "network traffic", f"UP {fmt_bytes(net.tx, True)}  DOWN {fmt_bytes(net.rx, True)}", p)
+        grid_spark(cr, ix, y, iw, graph_h, [(list(net.rx_hist)[-300:], 0.9), (list(net.tx_hist)[-300:], 0.45)],
+                   netmax, p, label=fmt_bytes(netmax, True))
+    live(cr, ix, y, iw, 30 + graph_h + 2, traffic)
+    y += 30 + graph_h + 10
     ports = data.ports
     text(cr, ix, y, "LISTENING", 9, p["dim"], 1.0, spacing=1)
     text(cr, ix + iw, y, f"{len(ports)} sockets", 9, p["dim"], 1.0, align="right")
@@ -626,12 +664,14 @@ def block_history(cr, x, y0, w, data, p, h=None, graph_h=100):
     pw, mem = data.power, data.mem
     y = frame(cr, x, y0, w, h, "panel", "history", p)
     ix, iw = x + 16, w - 32
-    blocks = [("cpu", f"{data.cpu.total * 100:.0f}%", data.cpu.hist, 1.0),
-              ("memory", f"{mem.used / mem.total * 100:.0f}%", mem.hist, 1.0)]
+    # (label, value, history, vmax); value and vmax are functions so live redraws read fresh data
+    blocks = [("cpu", lambda: f"{data.cpu.total * 100:.0f}%", data.cpu.hist, lambda: 1.0),
+              ("memory", lambda: f"{mem.used / mem.total * 100:.0f}%", mem.hist, lambda: 1.0)]
     if pw.present:
-        blocks.append(("power", f"{pw.watts:.1f}W" if not pw.on_ac else pw.status.lower(), pw.hist, max(15.0, max(pw.hist) * 1.1)))
+        blocks.append(("power", lambda: f"{pw.watts:.1f}W" if not pw.on_ac else pw.status.lower(), pw.hist,
+                       lambda: max(15.0, max(pw.hist) * 1.1)))
     if data.thermal.temp:
-        blocks.append(("thermal", f"{data.thermal.temp:.0f}°C", data.thermal.hist, 100.0))
+        blocks.append(("thermal", lambda: f"{data.thermal.temp:.0f}°C", data.thermal.hist, lambda: 100.0))
     per_row = len(blocks) if iw >= 600 else 2
     rows = math.ceil(len(blocks) / per_row)
     bw = (iw - (per_row - 1) * 24) / per_row
@@ -642,8 +682,11 @@ def block_history(cr, x, y0, w, data, p, h=None, graph_h=100):
         bx = ix + c_ * (bw + 24)
         by = y + r_ * (graph_h + 34)
         text(cr, bx, by, label.upper(), 9, p["dim"], 1.0, spacing=1)
-        text(cr, bx + bw, by, val, 11, p["ink"], 0.95, align="right")
-        grid_spark(cr, bx, by + 20, bw, graph_h, [(list(hist)[-int(bw):], 0.9)], vmax, p)
+
+        def graph(cr, bx=bx, by=by, val=val, hist=hist, vmax=vmax):
+            text(cr, bx + bw, by, val(), 11, p["ink"], 0.95, align="right")
+            grid_spark(cr, bx, by + 20, bw, graph_h, [(list(hist)[-int(bw):], 0.9)], vmax(), p)
+        live(cr, bx, by, bw, 20 + graph_h + 2, graph)
     y += rows * (graph_h + 34)
     if h is None:
         h = y - y0
@@ -680,13 +723,21 @@ def block_kernel(cr, x, y0, w, data, p, h=None):
     ix, iw = x + 16, w - 32
     k = data.kstat
     y = section(cr, ix, y, iw, "counters", data.kernel[:22], p)
-    y = stat_row(cr, ix, y, iw, [("ctx/s", fmt_rate(k.ctxt)), ("irq/s", fmt_rate(k.intr)), ("forks/s", f"{k.forks:.0f}")], p, big=11)
-    y = stat_row(cr, ix, y, iw, [("run", k.running), ("blocked", k.blocked), ("threads", data.procs.threads)], p, big=11)
+    row_h = 14 + 11 + 12
+
+    def counters(cr, y=y):
+        y = stat_row(cr, ix, y, iw, [("ctx/s", fmt_rate(k.ctxt)), ("irq/s", fmt_rate(k.intr)), ("forks/s", f"{k.forks:.0f}")], p, big=11)
+        stat_row(cr, ix, y, iw, [("run", k.running), ("blocked", k.blocked), ("threads", data.procs.threads)], p, big=11)
+    live(cr, ix, y, iw, row_h + 32, counters)
+    y += 2 * row_h
     y = stat_row(cr, ix, y, iw, [("files", k.fds), ("tcp", k.tcp), ("udp", k.udp)], p, big=11)
-    y = stat_row(cr, ix, y, iw, [("entropy", k.entropy), ("disk r", fmt_bytes(data.disk.read_bps, True)),
+
+    def disk(cr, y=y):
+        stat_row(cr, ix, y, iw, [("entropy", k.entropy), ("disk r", fmt_bytes(data.disk.read_bps, True)),
                                  ("disk w", fmt_bytes(data.disk.write_bps, True))], p, big=11)
-    grid_spark(cr, ix, y, iw, 44, [(list(k.ctxt_hist)[-180:], 0.9)], max(k.ctxt_hist) or 1, p, label="ctx")
-    y += 56
+        grid_spark(cr, ix, y + row_h, iw, 44, [(list(k.ctxt_hist)[-180:], 0.9)], max(k.ctxt_hist) or 1, p, label="ctx")
+    live(cr, ix, y, iw, row_h + 46, disk)
+    y += row_h + 56
     y = section(cr, ix, y, iw, "storage", "", p)
     for label, used, total in (("/", data.disk.root_used, data.disk.root_total), ("~", data.disk.home_used, data.disk.home_total)):
         if not total:
