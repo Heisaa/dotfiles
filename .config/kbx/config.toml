@@ -1,0 +1,36 @@
+[modules]
+# On by default; listed so the file says everything
+agent-permissions = true    # full permissions for Claude/Codex inside the VM
+clipboard = true            # image paste and text copy (Xvfb)
+codex-chatgpt-auth = true   # Codex uses your ChatGPT login (needed for remote control)
+notify = true               # desktop notifications, dashboard activity
+# Off by default
+claude-statusline = true
+codex-statusline = true
+codex-reset-fast = true     # Codex Fast mode doesn't carry over between sessions
+node-toolchain = true       # a chosen Node version instead of the core LTS
+playwright = true           # Chromium (~500 MB)
+rust = true                 # rustup toolchain (~1 GB)
+voice = true                # /voice with your host mic and speakers (~200 MB)
+
+[options.node-toolchain]
+version = "26"              # major, exact x.y.z, or "" to keep the core LTS
+apt = ""                    # extra apt packages, space separated
+npm = ""                    # extra global npm packages, e.g. "typescript pnpm"
+
+[options.playwright]
+version = "1.63.0"
+
+[options.rust]
+toolchain = "stable"
+extra = ""                  # toolchains your projects pin, e.g. "1.85"
+components = "clippy rustfmt"
+targets = ""                # e.g. "wasm32-unknown-unknown"
+apt = "pkg-config libssl-dev"
+
+[profiles.work]
+roots = ["~/Projects/work"]          # replace with your work directories
+memory = "16g"
+
+[profiles.personal]
+roots = ["~/Projects/personal"]
